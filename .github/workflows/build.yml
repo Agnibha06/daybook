@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,3 +24,13 @@ jobs:
         with:
           name: daybook-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk daybook.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest daybook.apk \
+            --title "Daybook (latest build)" \
+            --notes "Built from ${GITHUB_SHA::7}. On your phone, download daybook.apk and open it to install or update." \
+            --latest

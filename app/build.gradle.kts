@@ -16,11 +16,25 @@ android {
         versionName = "0.1"
     }
 
+    // One fixed key for every build (Android Studio and GitHub), so updates install
+    // over the old app instead of forcing an uninstall that would wipe your data.
+    // Personal-use key only; it is fine for it to live in the repo.
+    signingConfigs {
+        create("shared") {
+            storeFile = file("daybook.keystore")
+            storePassword = "daybook123"
+            keyAlias = "daybook"
+            keyPassword = "daybook123"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
             isMinifyEnabled = false
-            // Signed with the debug key so the APK installs directly on your phone.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("shared")
         }
     }
     compileOptions {
