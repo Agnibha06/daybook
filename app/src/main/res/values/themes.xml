@@ -1,0 +1,11 @@
+<resources>
+    <color name="ink">#FF101318</color>
+    <color name="amber">#FFF0A23B</color>
+    <style name="Theme.Daybook" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ink</item>
+        <item name="android:statusBarColor">@color/ink</item>
+        <item name="android:navigationBarColor">@color/ink</item>
+        <item name="android:colorAccent">@color/amber</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

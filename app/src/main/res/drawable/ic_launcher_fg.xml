@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A path climbing through three camps: the streak map, reduced to a mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M38,74 C52,72 58,64 54,56 C50,48 58,40 70,38"
+        android:strokeWidth="3.2"
+        android:strokeColor="#FF5A6270"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:fillColor="#FF5A6270"
+        android:pathData="M38,74m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path
+        android:fillColor="#FFECE8E1"
+        android:pathData="M54,56m-5.5,0a5.5,5.5 0,1 1,11 0a5.5,5.5 0,1 1,-11 0" />
+    <path
+        android:fillColor="#FFF0A23B"
+        android:pathData="M70,38m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+</vector>
