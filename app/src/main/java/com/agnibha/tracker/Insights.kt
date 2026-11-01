@@ -243,11 +243,11 @@ object Insights {
         // 9. Sleep against the next day's efficiency.
         val nights = s.plans.values.filter { it.sleptMin != null && it.tasks.any { t -> t.result != null } }
         val rested = nights.filter { it.sleptMin!! >= 7 * 60 }
-        val short = nights.filter { it.sleptMin!! < 6 * 60 }
-        if (rested.size >= 2 && short.size >= 2) {
+        val shortNights = nights.filter { it.sleptMin!! < 6 * 60 }
+        if (rested.size >= 2 && shortNights.size >= 2) {
             fun avg(ps: List<DayPlan>) = ps.flatMap { p -> p.tasks.mapNotNull { it.result?.efficiency } }.average().roundToInt()
             val a = avg(rested)
-            val b = avg(short)
+            val b = avg(shortNights)
             if (kotlin.math.abs(a - b) >= 6) out += Fact(
                 if (a > b) "Sleep is your cheapest upgrade" else "Short nights haven't hurt you yet",
                 "After 7+ hours of sleep your tasks average $a% efficiency. After less than 6 hours, $b%.",
