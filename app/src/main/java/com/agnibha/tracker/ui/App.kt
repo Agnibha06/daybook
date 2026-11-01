@@ -187,16 +187,21 @@ private fun MainShell(requestedTab: String?, consumeTab: () -> Unit) {
             SettingsScreen { Nav.settings = false }
         }
 
+        // Keep the last value so each overlay still has content while it slides away.
+        val lastDay = rememberLast(Nav.day)
+        val lastFocus = rememberLast(Nav.focus)
+        val lastResult = rememberLast(Nav.result)
+
         Overlay(Nav.day != null, onBack = { Nav.day = null }) {
-            Nav.day?.let { DayDetail(it) { Nav.day = null } }
+            lastDay?.let { DayDetail(it) { Nav.day = null } }
         }
 
         Overlay(Nav.focus != null, onBack = { Nav.focus = null }) {
-            Nav.focus?.let { (d, id) -> FocusScreen(d, id) { Nav.focus = null } }
+            lastFocus?.let { (d, id) -> FocusScreen(d, id) { Nav.focus = null } }
         }
 
         Overlay(Nav.result != null, onBack = { Nav.result = null }) {
-            Nav.result?.let { (task, result) ->
+            lastResult?.let { (task, result) ->
                 Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
                     ResultView(task, result) { Nav.result = null }
                 }
@@ -210,6 +215,13 @@ private fun MainShell(requestedTab: String?, consumeTab: () -> Unit) {
 
         ToastHost(Modifier.align(Alignment.BottomCenter))
     }
+}
+
+@Composable
+private fun <T> rememberLast(value: T?): T? {
+    var last by remember { mutableStateOf(value) }
+    if (value != null && value != last) last = value
+    return value ?: last
 }
 
 /** Full-screen layer that slides up from the bottom and covers the tab bar. */
