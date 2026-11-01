@@ -1,6 +1,23 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.agnibha.tracker.ui
 
+import androidx.compose.foundation.IndicationNodeFactory
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.node.DelegatableNode
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.invalidateDraw
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -9,6 +26,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.agnibha.tracker.Category
 import com.agnibha.tracker.R
@@ -49,13 +67,7 @@ fun effColor(e: Int): Color = when {
     else -> Ink.bad
 }
 
-val Sans = FontFamily(
-    Font(R.font.plex_sans, FontWeight.Normal),
-    Font(R.font.plex_sans, FontWeight.Medium),
-    Font(R.font.plex_sans, FontWeight.SemiBold),
-)
-
-/** Pixel display face for headings, numbers and labels. */
+/** One pixel face for everything: headings, numbers, labels and running text. */
 val Pix = FontFamily(
     Font(R.font.pixelify, FontWeight.Normal),
     Font(R.font.pixelify, FontWeight.Medium),
@@ -63,13 +75,15 @@ val Pix = FontFamily(
     Font(R.font.pixelify, FontWeight.Bold),
 )
 
+val Sans = Pix
+
 object Type {
     val hero = TextStyle(fontFamily = Pix, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, lineHeight = 38.sp, color = Ink.text)
     val h1 = TextStyle(fontFamily = Pix, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 32.sp, color = Ink.text)
     val h2 = TextStyle(fontFamily = Pix, fontWeight = FontWeight.Medium, fontSize = 21.sp, lineHeight = 26.sp, color = Ink.text)
-    val title = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 22.sp, color = Ink.text)
-    val body = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp, color = Ink.dim)
-    val small = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp, color = Ink.dim)
+    val title = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 17.sp, lineHeight = 22.sp, color = Ink.text)
+    val body = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp, color = Ink.dim)
+    val small = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 19.sp, color = Ink.dim)
     val label = TextStyle(fontFamily = Pix, fontWeight = FontWeight.Medium, fontSize = 12.sp, letterSpacing = 1.sp, color = Ink.faint)
     val num = TextStyle(fontFamily = Pix, fontWeight = FontWeight.Medium, fontSize = 16.sp, color = Ink.text)
     val bigNum = TextStyle(fontFamily = Pix, fontWeight = FontWeight.Bold, fontSize = 48.sp, lineHeight = 50.sp, color = Ink.text)
@@ -118,5 +132,44 @@ fun DaybookTheme(content: @Composable () -> Unit) {
         labelMedium = base.labelMedium.copy(fontFamily = Pix),
         labelSmall = base.labelSmall.copy(fontFamily = Pix),
     )
-    MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+    MaterialTheme(colorScheme = scheme, typography = typography) {
+        CompositionLocalProvider(
+            LocalIndication provides PixelIndication,
+            LocalRippleConfiguration provides null,
+            content = content,
+        )
+    }
+}
+
+/** Press feedback as a checkerboard dither of light pixels, instead of a round ripple. */
+object PixelIndication : IndicationNodeFactory {
+    override fun create(interactionSource: InteractionSource): DelegatableNode = PixelIndicationNode(interactionSource)
+    override fun hashCode(): Int = 7
+    override fun equals(other: Any?): Boolean = other === this
+}
+
+private class PixelIndicationNode(private val source: InteractionSource) : Modifier.Node(), DrawModifierNode {
+    private var pressed = false
+
+    override fun onAttach() {
+        coroutineScope.launch {
+            source.interactions.collect { i ->
+                when (i) {
+                    is PressInteraction.Press -> { pressed = true; invalidateDraw() }
+                    is PressInteraction.Release, is PressInteraction.Cancel -> { pressed = false; invalidateDraw() }
+                }
+            }
+        }
+    }
+
+    override fun ContentDrawScope.draw() {
+        drawContent()
+        if (!pressed) return
+        val px = 3.dp.toPx()
+        val cols = (size.width / px).toInt()
+        val rows = (size.height / px).toInt()
+        for (r in 1 until rows - 1) for (c in 1 until cols - 1) {
+            if ((r + c) % 2 == 0) drawRect(Color.White, Offset(c * px, r * px), Size(px, px), alpha = 0.07f)
+        }
+    }
 }

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -148,7 +149,7 @@ private fun MainShell(requestedTab: String?, consumeTab: () -> Unit) {
     }
 
     // Announce newly earned badges once nothing else is on screen.
-    val busy = flash > 0 || milestone > 0 || Nav.result != null || Nav.locked != null || Nav.focus != null
+    val busy = flash > 0 || milestone > 0 || Nav.result != null || Nav.locked != null || Nav.focus != null || Store.state.sleepingSince != null
     LaunchedEffect(Store.state, busy) {
         if (busy || badge != null) return@LaunchedEffect
         delay(500)
@@ -207,6 +208,8 @@ private fun MainShell(requestedTab: String?, consumeTab: () -> Unit) {
                 }
             }
         }
+
+        Overlay(Store.state.sleepingSince != null, onBack = {}) { SleepScreen() }
 
         Nav.locked?.let { pts -> LockCelebration(Store.streak(), pts) { Nav.locked = null } }
         if (flash > 0) StreakFlash(flash) { flash = 0 }
@@ -358,8 +361,16 @@ private fun LockCelebration(streak: Int, points: Int, onDone: () -> Unit) {
             Text("+$points points", style = Type.num.copy(color = Ink.amber, fontSize = 20.sp))
             Spacer(Modifier.height(16.dp))
             Text("Alerts are set. Get some sleep.", style = Type.body, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(32.dp))
-            Text("Tap to continue", style = Type.small.copy(color = Ink.faint))
+            Spacer(Modifier.height(28.dp))
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Box(Modifier.width(240.dp)) {
+                PrimaryButton("Go to sleep", color = Ink.sky, shadow = Ink.sky.copy(alpha = 0.45f)) {
+                    Store.startSleep(ctx)
+                    onDone()
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Text("Tap anywhere else to stay up", style = Type.small.copy(color = Ink.faint))
         }
     }
 }
@@ -505,5 +516,80 @@ fun badgeSprite(id: String): Sprite = when (id) {
     "iron" -> Sprites.badgeIron
     "steady" -> Sprites.badgeSteady
     "coin" -> Sprites.badgeCoin
+    "rested" -> Sprites.badgeRested
     else -> Sprites.badgeLock
+}
+
+/** While you sleep: a night sky, drifting Zs, the hours so far, and the way out. */
+@Composable
+private fun SleepScreen() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val s = Store.state
+    val since = s.sleepingSince ?: return
+    var now by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { delay(1000); now = System.currentTimeMillis() } }
+    val drift = androidx.compose.animation.core.rememberInfiniteTransition(label = "z")
+    val z by drift.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(3000, easing = LinearEasing)), label = "z")
+    val stars = remember { val r = Random(3); List(60) { Triple(r.nextFloat(), r.nextFloat() * 0.7f, r.nextInt(4)) } }
+    val target = s.sleepingFor?.let { s.plan(it) }
+    val mins = ((now - since) / 60000L).toInt()
+    var confirmCancel by remember { mutableStateOf(false) }
+
+    Box(Modifier.fillMaxSize()) {
+        Canvas(Modifier.fillMaxSize()) {
+            val px = 3.dp.toPx()
+            stars.forEachIndexed { i, (x, y, k) ->
+                val a = if (k == 0) 0.3f + 0.7f * (if (i % 2 == 0) z else 1f - z) else 0.45f
+                drawRect(if (k == 1) Ink.sky else Ink.text, Offset(floor(x * size.width / px) * px, floor(y * size.height / px) * px), Size(px, px), alpha = a * 0.7f)
+            }
+        }
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                PixelSprite(Sprites.badgeEarly, Modifier.size(56.dp))
+            }
+            Spacer(Modifier.weight(1f))
+            Box(Modifier.size(width = 180.dp, height = 120.dp), contentAlignment = Alignment.BottomCenter) {
+                // Three Zs rise from the bed and fade, each a third of a cycle apart.
+                for (k in 0 until 3) {
+                    val t = (z + k / 3f) % 1f
+                    PixelSprite(
+                        Sprites.zzz,
+                        Modifier.size(28.dp).graphicsLayer {
+                            translationX = (24 + k * 14).dp.toPx() + t * 18.dp.toPx()
+                            translationY = -(40.dp.toPx() + t * 70.dp.toPx())
+                            alpha = 1f - t
+                        },
+                    )
+                }
+                PixelSprite(Sprites.bed, Modifier.size(width = 140.dp, height = 90.dp))
+            }
+            Spacer(Modifier.height(24.dp))
+            Label("Asleep for", color = Ink.sky)
+            Text(Messages.duration(mins.coerceAtLeast(0)).let { if (mins < 1) "0m" else it }, style = Type.bigNum.copy(fontSize = 64.sp, lineHeight = 66.sp))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                target?.wakeMin?.let { "Alarm at ${Messages.time(it)} · ${com.agnibha.tracker.MAX_SNOOZES} snoozes of ${com.agnibha.tracker.SNOOZE_MINUTES} min" }
+                    ?: "No alarm set. Press I'm awake when you get up.",
+                style = Type.small,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.weight(1f))
+            PrimaryButton("I'm awake") {
+                val m = Store.wake(ctx)
+                Toaster.show(if (m != null) "Slept ${Messages.duration(m)}. ${Messages.sleepVerdict(m)}" else "Good morning.")
+            }
+            Spacer(Modifier.height(10.dp))
+            if (!confirmCancel) {
+                Text("Not sleeping yet", style = Type.num.copy(color = Ink.faint), modifier = Modifier.clickable { confirmCancel = true }.padding(10.dp))
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    GhostButton("Keep sleeping", Modifier.weight(1f)) { confirmCancel = false }
+                    GhostButton("Cancel sleep", Modifier.weight(1f), color = Ink.bad) { Store.cancelSleep(ctx) }
+                }
+            }
+        }
+    }
 }

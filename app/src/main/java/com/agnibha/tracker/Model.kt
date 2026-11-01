@@ -63,13 +63,32 @@ data class DayPlan(
     /** One line written about this day, and a 1–5 mood. 0 = not rated. */
     val note: String = "",
     val mood: Int = 0,
+    /** Planned bedtime as minute of day. Later than [wakeMin] means the evening before. */
+    val sleepMin: Int? = null,
+    /** Planned wake-up as minute of day. */
+    val wakeMin: Int? = null,
+    /** The night that ends on this date: when you pressed Sleep, and when you pressed I'm awake. */
+    val sleepStart: Long? = null,
+    val wakeAt: Long? = null,
+    val snoozes: Int = 0,
+    val snoozeUntil: Long? = null,
 ) {
     val isLocked: Boolean get() = lockedAt != null
+    val hasSleepPlan: Boolean get() = sleepMin != null && wakeMin != null
+    val sleptMin: Int? get() = if (sleepStart != null && wakeAt != null && wakeAt > sleepStart) ((wakeAt - sleepStart) / 60000L).toInt() else null
+    val plannedSleepMin: Int?
+        get() {
+            val s = sleepMin ?: return null
+            val w = wakeMin ?: return null
+            return if (s > w) (24 * 60 - s) + w else w - s
+        }
     val sortedTasks: List<Task> get() = tasks.sortedBy { it.startMin }
     val movesLeft: Int get() = (MAX_MOVES - moves).coerceAtLeast(0)
 }
 
 const val MAX_MOVES = 2
+const val MAX_SNOOZES = 3
+const val SNOOZE_MINUTES = 10
 
 /** A task template for a weekday routine. */
 data class RoutineItem(val title: String, val category: Category, val startMin: Int, val endMin: Int)
@@ -88,6 +107,9 @@ data class AppState(
     val routines: Map<Int, List<RoutineItem>> = emptyMap(),
     /** Badge ids already announced, so each unlock pops up once. */
     val badgesSeen: Set<String> = emptySet(),
+    /** Set while you're asleep: when Sleep was pressed, and the date whose wake-up ends it. */
+    val sleepingSince: Long? = null,
+    val sleepingFor: String? = null,
 ) {
     val totalPoints: Int
         get() = plans.values.sumOf { p -> p.lockPoints + p.tasks.sumOf { it.result?.points ?: 0 } }
@@ -128,6 +150,8 @@ object Codec {
         o.put("setupDone", s.setupDone)
         o.put("distracting", JSONArray(s.distracting.toList()))
         o.put("badgesSeen", JSONArray(s.badgesSeen.toList()))
+        o.put("sleepingSince", s.sleepingSince ?: JSONObject.NULL)
+        o.put("sleepingFor", s.sleepingFor ?: JSONObject.NULL)
         val plans = JSONObject()
         s.plans.forEach { (k, p) -> plans.put(k, plan(p)) }
         o.put("plans", plans)
@@ -160,6 +184,8 @@ object Codec {
             setupDone = o.optBoolean("setupDone", false),
             routines = routines,
             badgesSeen = strings(o.optJSONArray("badgesSeen"))?.toSet() ?: emptySet(),
+            sleepingSince = if (o.isNull("sleepingSince")) null else o.optLong("sleepingSince"),
+            sleepingFor = if (o.isNull("sleepingFor")) null else o.optString("sleepingFor"),
         )
     }
 
@@ -172,6 +198,12 @@ object Codec {
         put("moves", p.moves)
         put("note", p.note)
         put("mood", p.mood)
+        put("sleepMin", p.sleepMin ?: JSONObject.NULL)
+        put("wakeMin", p.wakeMin ?: JSONObject.NULL)
+        put("sleepStart", p.sleepStart ?: JSONObject.NULL)
+        put("wakeAt", p.wakeAt ?: JSONObject.NULL)
+        put("snoozes", p.snoozes)
+        put("snoozeUntil", p.snoozeUntil ?: JSONObject.NULL)
         put("tasks", JSONArray().apply { p.tasks.forEach { put(task(it)) } })
     }
 
@@ -185,6 +217,12 @@ object Codec {
             moves = o.optInt("moves", 0),
             note = o.optString("note", ""),
             mood = o.optInt("mood", 0),
+            sleepMin = if (o.isNull("sleepMin") || !o.has("sleepMin")) null else o.optInt("sleepMin"),
+            wakeMin = if (o.isNull("wakeMin") || !o.has("wakeMin")) null else o.optInt("wakeMin"),
+            sleepStart = if (o.isNull("sleepStart") || !o.has("sleepStart")) null else o.optLong("sleepStart"),
+            wakeAt = if (o.isNull("wakeAt") || !o.has("wakeAt")) null else o.optLong("wakeAt"),
+            snoozes = o.optInt("snoozes", 0),
+            snoozeUntil = if (o.isNull("snoozeUntil") || !o.has("snoozeUntil")) null else o.optLong("snoozeUntil"),
         )
     }
 

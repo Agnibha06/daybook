@@ -76,6 +76,8 @@ fun TodayScreen() {
             StatPill(Sprites.badgeSteady, "${Store.movesLeft(key)}", "moves", Ink.sky, Modifier.weight(1f))
         }
 
+        SleepCard()
+
         // Tonight's check-in
         if (Store.streakAtRisk(s)) {
             Panel(border = Ink.amber) {
@@ -167,7 +169,7 @@ fun TodayScreen() {
             }
         }
 
-        GhostButton("+  Add a task to today", Modifier.fillMaxWidth(), color = Ink.amber) { adding = true }
+        GhostButton("Add a task to today", Modifier.fillMaxWidth(), color = Ink.amber, icon = Sprites.plus) { adding = true }
         Spacer(Modifier.height(12.dp))
     }
 
@@ -268,6 +270,78 @@ private fun CheckOutCard(t: Task, key: String) {
             Chip("Done", false, Ink.good) { Store.checkOut(ctx, key, t.id, Outcome.DONE, false)?.let { Nav.showResult(key, t.id, it) } }
             Chip("Partly", false, Ink.amber) { Store.checkOut(ctx, key, t.id, Outcome.PARTIAL, false)?.let { Nav.showResult(key, t.id, it) } }
             Chip("Missed", false, Ink.bad) { Store.checkOut(ctx, key, t.id, Outcome.MISSED, false)?.let { Nav.showResult(key, t.id, it) } }
+        }
+    }
+}
+
+/** Bedtime button at night, last night's sleep in the morning. */
+@Composable
+private fun SleepCard() {
+    val ctx = LocalContext.current
+    val s = Store.state
+    val hour = Clock.now().hour
+    val today = s.plan(Clock.todayKey())
+    if (s.sleepingSince != null) return
+
+    val wakeKey = Store.nextWakeDate()
+    val target = s.plan(wakeKey)
+    val bedAt = Store.bedtimeEpoch(wakeKey)
+    val nearBed = bedAt != null && bedAt - System.currentTimeMillis() < 90 * 60_000L
+    val missedWake = today.wakeMin != null && today.wakeAt == null &&
+        (Store.wakeEpoch(Clock.todayKey()) ?: Long.MAX_VALUE) < System.currentTimeMillis() && hour in 4..13
+
+    when {
+        hour >= 21 || hour < 4 || nearBed -> Panel(color = Ink.surface, border = Ink.sky.copy(alpha = 0.6f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PixelSprite(Sprites.bed, Modifier.size(44.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Label("Night", color = Ink.sky)
+                    Text(
+                        target.sleepMin?.let { "Bedtime ${Messages.time(it)}" } ?: "Going to bed?",
+                        style = Type.h2,
+                    )
+                    Text(
+                        target.wakeMin?.let { "Alarm at ${Messages.time(it)}" } ?: "No wake-up set. Add one in the Plan tab.",
+                        style = Type.small,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("Sleep now", color = Ink.sky, shadow = Ink.sky.copy(alpha = 0.45f)) { Store.startSleep(ctx) }
+        }
+        missedWake -> Panel {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PixelSprite(Sprites.sunRise, Modifier.size(44.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Wake-up not logged", style = Type.title)
+                    Text("Your alarm was at ${Messages.time(today.wakeMin ?: 0)}.", style = Type.small)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("I'm awake") {
+                val m = Store.wake(ctx)
+                Toaster.show(if (m != null) "Slept ${Messages.duration(m)}. ${Messages.sleepVerdict(m)}" else "Wake-up logged.")
+            }
+        }
+        today.wakeAt != null && hour < 13 -> {
+            val slept = today.sleptMin
+            Row(
+                Modifier.fillMaxWidth().background(Ink.surface, PxShape).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PixelSprite(Sprites.sunRise, Modifier.size(36.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(if (slept != null) "Slept ${Messages.duration(slept)}" else "Up and running", style = Type.title)
+                    val woke = java.time.Instant.ofEpochMilli(today.wakeAt).atZone(Clock.zone)
+                    Text("Woke ${Messages.time(woke.hour * 60 + woke.minute)} · ${Messages.morningLine(today.snoozes)}", style = Type.small)
+                }
+                if (slept != null) {
+                    Text(Messages.duration(slept), style = Type.num.copy(color = if (slept >= 7 * 60) Ink.good else if (slept >= 6 * 60) Ink.amber else Ink.bad))
+                }
+            }
         }
     }
 }

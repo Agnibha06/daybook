@@ -589,6 +589,103 @@ S["badge_lock"] = [  # padlock (locked-in before 1 AM streak)
     "............",
 ]
 
+
+# ---------- Sleep and wake ----------
+S["sun_rise"] = [
+    "..y....yy....y..",
+    "...y...yy...y...",
+    "................",
+    "......aaaa......",
+    "....aayyyyaa....",
+    "...ayyyyyyyya...",
+    "y..ayyyyyyyya..y",
+    "..ayyyyyyyyyya..",
+    "oooooooooooooooo",
+    "..o.oo..ooo.o...",
+    "dddddddddddddddd",
+    "................",
+]
+S["bed"] = [
+    "cc............",
+    "cc............",
+    "ccwww.........",
+    "ccwwwnnnnnnnnn",
+    "ccnnnnnnnnnnnn",
+    "ccnnbnnnbnnnnn",
+    "cccccccccccccc",
+    "cc..........cc",
+    "cc..........cc",
+]
+S["zzz"] = [
+    ".....bbbb",
+    ".......b.",
+    "bbb...b..",
+    "..b..bbbb",
+    ".b.......",
+    "bbb......",
+]
+S["alarm"] = [
+    ".rr......rr.",
+    "rrr.gggg.rrr",
+    "rr.gwwwwg.rr",
+    "..gwwwawwg..",
+    ".gwwwwawwwg.",
+    ".gwwwwaaawg.",
+    ".gwwwwwwwwg.",
+    ".gwwwwwwwwg.",
+    "..gwwwwwwg..",
+    "...gggggg...",
+    "..g......g..",
+    ".g........g.",
+]
+S["badge_rested"] = [
+    "........bbbb",
+    "..........b.",
+    ".........b..",
+    "........bbbb",
+    "............",
+    "..wwwwwwww..",
+    ".wwwwwwwwww.",
+    "wwwgwwwwgwww",
+    "wwwwwwwwwwww",
+    ".wwwwwwwwww.",
+    "..gggggggg..",
+    "............",
+]
+
+# ---------- Interface glyphs (7x7) ----------
+_up = [
+    "...w...",
+    "..www..",
+    ".wwwww.",
+    "wwwwwww",
+    "..www..",
+    "..www..",
+    "..www..",
+]
+S["arrow_up"] = _up
+S["arrow_down"] = list(reversed(_up))
+S["arrow_left"] = ["".join(_up[r][c] for r in range(7)) for c in range(7)]
+S["arrow_right"] = [row[::-1] for row in S["arrow_left"]]
+S["plus"] = ["..www..", "..www..", "wwwwwww", "wwwwwww", "wwwwwww", "..www..", "..www.."]
+S["check"] = [
+    ".......l",
+    "......ll",
+    "l....ll.",
+    "ll..ll..",
+    ".llll...",
+    "..ll....",
+]
+S["cross"] = [
+    "oo...oo",
+    "ooo.ooo",
+    ".ooooo.",
+    "..ooo..",
+    ".ooooo.",
+    "ooo.ooo",
+    "oo...oo",
+]
+
 # ---------- Launcher (16x16) ----------
 S["launcher"] = [
     "................",

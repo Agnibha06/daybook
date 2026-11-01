@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.agnibha.tracker.ui.Block
 import com.agnibha.tracker.ui.DaybookTheme
 import com.agnibha.tracker.ui.GhostButton
@@ -61,6 +62,8 @@ class AlarmActivity : ComponentActivity() {
     private var taskId by mutableStateOf<String?>(null)
     private var result by mutableStateOf<TaskResult?>(null)
     private var note by mutableStateOf<String?>(null)
+    /** Minutes slept once "I'm awake" is pressed; -1 when the night wasn't tracked. */
+    private var morning by mutableStateOf<Int?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,12 +82,15 @@ class AlarmActivity : ComponentActivity() {
                     val r = result
                     val t = if (date != null && taskId != null) Store.findTask(date!!, taskId!!) else null
                     val screen = when {
+                        morning != null -> "morning"
                         note != null -> "note"
                         r != null && t != null -> "result"
                         k == Kind.TASK_SOON && t != null -> "soon"
                         k == Kind.TASK_END && t != null -> "end"
                         k == Kind.PLAN_REMIND || k == Kind.PLAN_LAST_CALL -> "plan"
                         k == Kind.TEST -> "test"
+                        k == Kind.WAKE -> "wake"
+                        k == Kind.BEDTIME -> "bed"
                         else -> "none"
                     }
                     AnimatedContent(screen, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(150)) }, label = "alarm") { sc ->
@@ -101,6 +107,9 @@ class AlarmActivity : ComponentActivity() {
                             "end" -> t?.let { EndView(it) }
                             "plan" -> k?.let { PlanView(it) }
                             "test" -> TestView()
+                            "wake" -> WakeView()
+                            "bed" -> BedView()
+                            "morning" -> MorningView(morning ?: -1)
                             else -> LaunchedEffect(Unit) { silence(); finish() }
                         }
                     }
@@ -121,6 +130,7 @@ class AlarmActivity : ComponentActivity() {
         taskId = i.getStringExtra(Alarms.EXTRA_TASK)
         result = null
         note = null
+        morning = null
     }
 
     private fun silence() {
@@ -294,5 +304,86 @@ class AlarmActivity : ComponentActivity() {
             )
         }
         PrimaryButton("Looks good") { close() }
+    }
+
+    @Composable
+    private fun WakeView() = Shell("Wake up") {
+        val d = date ?: Clock.todayKey()
+        val p = Store.state.plan(d)
+        val left = MAX_SNOOZES - p.snoozes
+        var now by remember { mutableStateOf(java.time.LocalTime.now()) }
+        LaunchedEffect(Unit) { while (true) { delay(10_000); now = java.time.LocalTime.now() } }
+        Column {
+            PixelSprite(Sprites.sunRise, Modifier.size(width = 128.dp, height = 96.dp))
+            Spacer(Modifier.height(16.dp))
+            Text(Messages.time(now.hour * 60 + now.minute), style = Type.bigNum.copy(fontSize = 72.sp, lineHeight = 74.sp, color = Ink.amber))
+            Text("Good morning", style = Type.hero)
+            Spacer(Modifier.height(12.dp))
+            Text(Messages.wakeBody(Store.sleepingMinutes()), style = Type.body.copy(color = Ink.text))
+        }
+        Column {
+            PrimaryButton("I'm awake") {
+                silence()
+                morning = Store.wake(this@AlarmActivity) ?: -1
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                repeat(MAX_SNOOZES) { i -> Block(if (i < left) Ink.sky else Ink.line, 10.dp); Spacer(Modifier.width(4.dp)) }
+                Spacer(Modifier.width(6.dp))
+                Text(if (left > 0) "$left snooze${if (left == 1) "" else "s"} left" else "No snoozes left. Up you get.", style = Type.small)
+            }
+            Spacer(Modifier.height(8.dp))
+            GhostButton("Snooze $SNOOZE_MINUTES min", Modifier.fillMaxWidth(), color = Ink.sky, enabled = left > 0) {
+                Store.snooze(this@AlarmActivity, d)
+                finish()
+            }
+        }
+    }
+
+    @Composable
+    private fun MorningView(slept: Int) = Shell("Good morning") {
+        val today = Store.state.plan(Clock.todayKey())
+        val first = today.sortedTasks.firstOrNull { it.result == null && it.endMin > Clock.minutesNow() }
+        Column {
+            PixelSprite(Sprites.sunRise, Modifier.size(width = 96.dp, height = 72.dp))
+            Spacer(Modifier.height(16.dp))
+            if (slept >= 0) {
+                Label("You slept", color = Ink.sky)
+                Text(Messages.duration(slept), style = Type.bigNum.copy(fontSize = 64.sp, lineHeight = 66.sp))
+                Text(Messages.sleepVerdict(slept), style = Type.body.copy(color = Ink.text))
+            } else {
+                Text("Wake-up logged", style = Type.hero)
+                Text("Press Sleep before bed tonight and the app will count your hours.", style = Type.body)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(Messages.morningLine(today.snoozes), style = Type.small)
+            if (first != null) {
+                Spacer(Modifier.height(20.dp))
+                Label("First up")
+                Text("${first.title} · ${Messages.time(first.startMin)}", style = Type.title)
+            }
+        }
+        PrimaryButton("Start the day") { finish() }
+    }
+
+    @Composable
+    private fun BedView() = Shell("Bedtime") {
+        val d = date ?: Store.nextWakeDate()
+        Column {
+            PixelSprite(Sprites.bed, Modifier.size(width = 112.dp, height = 72.dp))
+            Spacer(Modifier.height(16.dp))
+            Text("Time to sleep", style = Type.hero)
+            Spacer(Modifier.height(12.dp))
+            Text(Messages.bedtimeBody(Store.state.plan(d)), style = Type.body.copy(color = Ink.text))
+        }
+        Column {
+            PrimaryButton("Going to sleep", color = Ink.sky, shadow = Ink.sky.copy(alpha = 0.45f)) {
+                silence()
+                Store.startSleep(this@AlarmActivity)
+                finish()
+            }
+            Spacer(Modifier.height(10.dp))
+            GhostButton("Not yet", Modifier.fillMaxWidth()) { close() }
+        }
     }
 }

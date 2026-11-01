@@ -46,6 +46,18 @@ object Sprites {
     val badgeSteady = Sprite("....rrrr....", "...rrwwrr...", "..rrwrrrrr..", "..rrrrrrrr..", "..rrrrrrrr..", "...rrrrrr...", "....rrrr....", ".....gg.....", ".....gg.....", ".....gg.....", ".....g......", "............")
     val badgeCoin = Sprite("....yyyy....", "..yyaaaayy..", ".yaayyyyaay.", ".yayyaayyay.", "yayyaayyyaay", "yayyaayyyaay", "yayyaayyyaay", "yayyaayyyaay", ".yayaaaayay.", ".yaayyyyaay.", "..yyaaaayy..", "....yyyy....")
     val badgeLock = Sprite("....gggg....", "...g....g...", "...g....g...", "...g....g...", "..aaaaaaaa..", "..ayyyyyya..", "..aaakkaaa..", "..aaakkaaa..", "..aaaakaaa..", "..aaaaaaaa..", "..oooooooo..", "............")
+    val sunRise = Sprite("..y....yy....y..", "...y...yy...y...", "................", "......aaaa......", "....aayyyyaa....", "...ayyyyyyyya...", "y..ayyyyyyyya..y", "..ayyyyyyyyyya..", "oooooooooooooooo", "..o.oo..ooo.o...", "dddddddddddddddd", "................")
+    val bed = Sprite("cc............", "cc............", "ccwww.........", "ccwwwnnnnnnnnn", "ccnnnnnnnnnnnn", "ccnnbnnnbnnnnn", "cccccccccccccc", "cc..........cc", "cc..........cc")
+    val zzz = Sprite(".....bbbb", ".......b.", "bbb...b..", "..b..bbbb", ".b.......", "bbb......")
+    val alarm = Sprite(".rr......rr.", "rrr.gggg.rrr", "rr.gwwwwg.rr", "..gwwwawwg..", ".gwwwwawwwg.", ".gwwwwaaawg.", ".gwwwwwwwwg.", ".gwwwwwwwwg.", "..gwwwwwwg..", "...gggggg...", "..g......g..", ".g........g.")
+    val badgeRested = Sprite("........bbbb", "..........b.", ".........b..", "........bbbb", "............", "..wwwwwwww..", ".wwwwwwwwww.", "wwwgwwwwgwww", "wwwwwwwwwwww", ".wwwwwwwwww.", "..gggggggg..", "............")
+    val arrowUp = Sprite("...w...", "..www..", ".wwwww.", "wwwwwww", "..www..", "..www..", "..www..")
+    val arrowDown = Sprite("..www..", "..www..", "..www..", "wwwwwww", ".wwwww.", "..www..", "...w...")
+    val arrowLeft = Sprite("...w...", "..ww...", ".wwwwww", "wwwwwww", ".wwwwww", "..ww...", "...w...")
+    val arrowRight = Sprite("...w...", "...ww..", "wwwwww.", "wwwwwww", "wwwwww.", "...ww..", "...w...")
+    val plus = Sprite("..www..", "..www..", "wwwwwww", "wwwwwww", "wwwwwww", "..www..", "..www..")
+    val check = Sprite(".......l", "......ll", "l....ll.", "ll..ll..", ".llll...", "..ll....")
+    val cross = Sprite("oo...oo", "ooo.ooo", ".ooooo.", "..ooo..", ".ooooo.", "ooo.ooo", "oo...oo")
     val launcher = Sprite("................", ".....goo...yyy..", ".....gooo.yyyyy.", ".....g....yyyyy.", ".....g.....yyy..", ".....w..........", "....www.........", "...wwsss....d...", "..wssssss..ddd..", "..sssssssddddd..", ".sssssssssddddd.", ".ssssssssssdddd.", "ssssssssssssdddd", "ssssssssssssssdd", "eeeeeeeeeeeeeeee", "................")
 }
 

@@ -20,19 +20,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -76,50 +67,8 @@ fun countdown(millis: Long): String {
 }
 
 @Composable
-fun pixelFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = Ink.amber,
-    unfocusedBorderColor = Ink.line,
-    cursorColor = Ink.amber,
-    focusedContainerColor = Ink.bg,
-    unfocusedContainerColor = Ink.bg,
-)
-
-@Composable
-fun TimePickDialog(initialMin: Int, title: String, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
-    val state = rememberTimePickerState(initialHour = initialMin / 60, initialMinute = initialMin % 60, is24Hour = false)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Ink.surface,
-        shape = PxShape,
-        title = { Text(title, style = Type.h2) },
-        confirmButton = {
-            TextButton(onClick = { onPick(state.hour * 60 + state.minute) }) { Text("Set", style = Type.num.copy(color = Ink.amber)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", style = Type.num.copy(color = Ink.dim)) }
-        },
-        text = {
-            TimePicker(
-                state = state,
-                colors = TimePickerDefaults.colors(
-                    clockDialColor = Ink.raised,
-                    selectorColor = Ink.amber,
-                    containerColor = Ink.surface,
-                    periodSelectorBorderColor = Ink.line,
-                    periodSelectorSelectedContainerColor = Ink.amberSoft,
-                    periodSelectorSelectedContentColor = Ink.amber,
-                    periodSelectorUnselectedContentColor = Ink.dim,
-                    timeSelectorSelectedContainerColor = Ink.amberSoft,
-                    timeSelectorSelectedContentColor = Ink.amber,
-                    timeSelectorUnselectedContainerColor = Ink.raised,
-                    timeSelectorUnselectedContentColor = Ink.text,
-                    clockDialSelectedContentColor = Ink.bg,
-                    clockDialUnselectedContentColor = Ink.text,
-                ),
-            )
-        },
-    )
-}
+fun TimePickDialog(initialMin: Int, title: String, onDismiss: () -> Unit, onPick: (Int) -> Unit) =
+    PixelTimeDialog(initialMin, title, onDismiss, onPick)
 
 /**
  * Add or edit one task. When [timesLocked] the day is live: times change only through a move,
@@ -162,17 +111,7 @@ fun TaskEditor(
                 Spacer(Modifier.width(12.dp))
                 Text(if (initial == null) "New task" else "Edit task", style = Type.h2)
             }
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it.take(60) },
-                singleLine = true,
-                textStyle = Type.title,
-                shape = PxShapeSmall,
-                placeholder = { Text("What are you doing?", style = Type.title.copy(color = Ink.faint)) },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                colors = pixelFieldColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            PixelTextField(title, { title = it.take(60) }, "What are you doing?")
             Label("Type")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Category.entries.forEach { c -> Chip(c.label, c == cat, c.tint(), c.sprite()) { cat = c } }

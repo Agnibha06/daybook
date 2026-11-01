@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -118,20 +119,143 @@ fun GhostButton(
     modifier: Modifier = Modifier,
     color: Color = Ink.text,
     enabled: Boolean = true,
+    icon: Sprite? = null,
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    Box(
+    Row(
         modifier
             .height(48.dp)
             .background(if (pressed) Ink.raised else Color.Transparent, PxShape)
             .border(2.dp, if (enabled) Ink.line else Ink.surface, PxShape)
             .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        if (icon != null) {
+            PixelSprite(icon, Modifier.size(14.dp), tint = if (enabled) color else Ink.faint)
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(text, style = Type.title.copy(color = if (enabled) color else Ink.faint), textAlign = TextAlign.Center)
+    }
+}
+
+/** Square icon button: a sprite on a raised pixel tile. */
+@Composable
+fun PixelIconButton(sprite: Sprite, modifier: Modifier = Modifier, enabled: Boolean = true, tint: Color? = null, onClick: () -> Unit) {
+    Box(
+        modifier
+            .size(44.dp)
+            .background(Ink.surface, PxShapeSmall)
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = Type.title.copy(color = if (enabled) color else Ink.faint), textAlign = TextAlign.Center)
+        PixelSprite(sprite, Modifier.size(18.dp), muted = !enabled, tint = if (enabled) tint else null)
+    }
+}
+
+/** On/off switch drawn as a block that jumps between two cells. */
+@Composable
+fun PixelToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
+    val x by androidx.compose.animation.core.animateDpAsState(if (checked) 22.dp else 0.dp, tween(120), label = "toggle")
+    Box(
+        Modifier
+            .size(width = 52.dp, height = 30.dp)
+            .background(if (checked) Ink.amberSoft else Ink.raised, PxShapeSmall)
+            .border(2.dp, if (checked) Ink.amber else Ink.line, PxShapeSmall)
+            .clickable { onChange(!checked) }
+            .padding(4.dp),
+    ) {
+        Box(Modifier.offset(x = x).size(22.dp).background(if (checked) Ink.amber else Ink.dim, PxShapeSmall))
+    }
+}
+
+/** Single- or multi-line text input in a pixel frame. */
+@Composable
+fun PixelTextField(
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    capitalization: androidx.compose.ui.text.input.KeyboardCapitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    androidx.compose.foundation.text.BasicTextField(
+        value = value,
+        onValueChange = onChange,
+        singleLine = singleLine,
+        textStyle = Type.title,
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(Ink.amber),
+        interactionSource = interaction,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(capitalization = capitalization),
+        modifier = modifier.fillMaxWidth(),
+        decorationBox = { inner ->
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Ink.bg, PxShapeSmall)
+                    .border(2.dp, if (focused) Ink.amber else Ink.line, PxShapeSmall)
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
+            ) {
+                if (value.isEmpty()) Text(placeholder, style = Type.title.copy(color = Ink.faint))
+                inner()
+            }
+        },
+    )
+}
+
+/** Time picker made of pixel steppers: hours, minutes in 5s, and AM/PM. */
+@Composable
+fun PixelTimeDialog(initialMin: Int, title: String, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
+    var min by remember { mutableStateOf(((initialMin % 1440) + 1440) % 1440) }
+    val h24 = min / 60
+    val m = min % 60
+    val h12 = if (h24 % 12 == 0) 12 else h24 % 12
+    val pm = h24 >= 12
+    fun add(delta: Int) { min = ((min + delta) % 1440 + 1440) % 1440 }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().background(Ink.surface, PxShape).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(title, style = Type.h2)
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Stepper("${h12}", onUp = { add(60) }, onDown = { add(-60) })
+                Text(":", style = Type.bigNum.copy(color = Ink.dim), modifier = Modifier.padding(horizontal = 6.dp))
+                Stepper(m.toString().padStart(2, '0'), onUp = { add(5 - m % 5) }, onDown = { add(if (m % 5 == 0) -5 else -(m % 5)) })
+                Spacer(Modifier.width(14.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("AM", !pm) { if (pm) add(-720) }
+                    Chip("PM", pm) { if (!pm) add(720) }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(-30, -15, 15, 30).forEach { d ->
+                    Chip(if (d > 0) "+${d}m" else "${d}m", false, Ink.dim) { add(d) }
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            PrimaryButton("Set ${Messages.time(min)}") { onPick(min) }
+            Spacer(Modifier.height(6.dp))
+            Text("Cancel", style = Type.num.copy(color = Ink.dim), modifier = Modifier.clickable(onClick = onDismiss).padding(10.dp))
+        }
+    }
+}
+
+@Composable
+private fun Stepper(value: String, onUp: () -> Unit, onDown: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        PixelIconButton(Sprites.arrowUp, onClick = onUp)
+        Box(Modifier.padding(vertical = 6.dp).width(72.dp).background(Ink.bg, PxShapeSmall).padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+            Text(value, style = Type.bigNum)
+        }
+        PixelIconButton(Sprites.arrowDown, onClick = onDown)
     }
 }
 

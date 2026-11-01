@@ -112,4 +112,29 @@ object Messages {
     fun badgeUnlocked(name: String): String = "Badge earned: $name"
 
     val moodLabels = listOf("Rough", "Meh", "Okay", "Good", "Great")
+
+    fun wakeBody(sleptMin: Int?): String =
+        if (sleptMin != null) "You've slept ${duration(sleptMin)}. Press I'm awake to log it, or snooze 10 minutes."
+        else "Press I'm awake, or snooze 10 minutes. You get three snoozes."
+
+    fun bedtimeBody(p: DayPlan): String {
+        val first = p.sortedTasks.firstOrNull()
+        val wake = p.wakeMin?.let { time(it) } ?: "your alarm"
+        return if (first != null) "Alarm at $wake. First up: ${first.title} at ${time(first.startMin)}. Press Sleep when you put the phone down."
+        else "Alarm at $wake. Press Sleep when you put the phone down so the app can count your hours."
+    }
+
+    fun sleepVerdict(min: Int): String = when {
+        min >= 8 * 60 -> "Full tank."
+        min >= 7 * 60 -> "Solid night."
+        min >= 6 * 60 -> "A bit short. Go to bed earlier tonight."
+        min >= 4 * 60 -> "Short night. Keep today's focus blocks small."
+        else -> "Very little sleep. Be careful with anything that needs a clear head."
+    }
+
+    fun morningLine(snoozes: Int): String = when (snoozes) {
+        0 -> "Up on the first alarm."
+        1 -> "One snooze."
+        else -> "$snoozes snoozes."
+    }
 }

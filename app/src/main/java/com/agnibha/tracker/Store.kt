@@ -118,7 +118,8 @@ object Store {
 
     fun canLock(s: AppState = state): Boolean {
         val d = draftDate(s)
-        return Clock.inWindow() && d == Clock.today() && s.plan(Clock.key(d)).tasks.isNotEmpty()
+        val p = s.plan(Clock.key(d))
+        return Clock.inWindow() && d == Clock.today() && p.hasSleepPlan && p.tasks.isNotEmpty()
     }
 
     fun upsertTask(dateKey: String, task: Task) = putPlan(dateKey) { p ->
@@ -236,6 +237,85 @@ object Store {
             p.copy(tasks = p.tasks + fresh.map { Task(newTaskId(), it.title, it.category, it.startMin, it.endMin) })
         }
         return fresh.size
+    }
+
+    // ---------- Sleep ----------
+
+    /** Bedtime and wake-up are part of the plan, and fixed once it's locked. */
+    fun setSleepPlan(ctx: Context, dateKey: String, sleepMin: Int, wakeMin: Int): Boolean {
+        if (state.plan(dateKey).isLocked) return false
+        putPlan(dateKey) { it.copy(sleepMin = sleepMin, wakeMin = wakeMin) }
+        Alarms.scheduleSleep(ctx)
+        return true
+    }
+
+    /** The most recent sleep plan before [dateKey], to suggest as a default. */
+    fun lastSleepPlan(dateKey: String): Pair<Int, Int>? = state.plans.values
+        .filter { it.date < dateKey && it.hasSleepPlan }
+        .maxByOrNull { it.date }
+        ?.let { it.sleepMin!! to it.wakeMin!! }
+
+    fun bedtimeEpoch(dateKey: String): Long? {
+        val p = state.plan(dateKey)
+        val s = p.sleepMin ?: return null
+        val w = p.wakeMin ?: return null
+        val d = LocalDate.parse(dateKey)
+        return Clock.epoch(if (s > w) d.minusDays(1) else d, s)
+    }
+
+    fun wakeEpoch(dateKey: String): Long? = state.plan(dateKey).wakeMin?.let { Clock.epoch(dateKey, it) }
+
+    /** The date whose wake-up ends tonight's sleep: today if its alarm hasn't rung yet, else tomorrow. */
+    fun nextWakeDate(): String {
+        val today = Clock.todayKey()
+        val p = state.plan(today)
+        val w = wakeEpoch(today)
+        return if (w != null && p.wakeAt == null && w > System.currentTimeMillis()) today
+        else Clock.key(Clock.today().plusDays(1))
+    }
+
+    fun startSleep(ctx: Context) {
+        if (state.sleepingSince != null) return
+        update { it.copy(sleepingSince = System.currentTimeMillis(), sleepingFor = nextWakeDate()) }
+        Alerts.cancel(ctx, Kind.BEDTIME, null, null)
+        Alarms.scheduleSleep(ctx)
+    }
+
+    fun cancelSleep(ctx: Context) {
+        update { it.copy(sleepingSince = null, sleepingFor = null) }
+        Alarms.scheduleSleep(ctx)
+    }
+
+    fun sleepingMinutes(): Int? = state.sleepingSince?.let { ((System.currentTimeMillis() - it) / 60000L).toInt() }
+
+    /** Press "I'm awake". Records the night if Sleep was pressed. Returns minutes slept, if known. */
+    fun wake(ctx: Context): Int? {
+        val now = System.currentTimeMillis()
+        val since = state.sleepingSince
+        // The night belongs to the date being woken into.
+        val key = state.sleepingFor?.takeIf { LocalDate.parse(it) <= Clock.today() } ?: Clock.todayKey()
+        update { s ->
+            val p = s.plan(key)
+            s.copy(
+                plans = s.plans + (key to p.copy(sleepStart = since ?: p.sleepStart, wakeAt = now, snoozeUntil = null)),
+                sleepingSince = null,
+                sleepingFor = null,
+            )
+        }
+        Alerts.cancel(ctx, Kind.WAKE, null, null)
+        Alarms.scheduleSleep(ctx)
+        return state.plan(key).sleptMin
+    }
+
+    /** Snooze the wake alarm for 10 minutes. Returns snoozes left, or null if none were left. */
+    fun snooze(ctx: Context, dateKey: String): Int? {
+        val p = state.plan(dateKey)
+        if (p.snoozes >= MAX_SNOOZES) return null
+        val at = System.currentTimeMillis() + SNOOZE_MINUTES * 60_000L
+        putPlan(dateKey) { it.copy(snoozes = it.snoozes + 1, snoozeUntil = at) }
+        Alerts.cancel(ctx, Kind.WAKE, null, null)
+        Alarms.snooze(ctx, dateKey, at)
+        return MAX_SNOOZES - p.snoozes - 1
     }
 
     // ---------- Lock-in and reflection ----------

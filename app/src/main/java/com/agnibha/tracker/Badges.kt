@@ -72,6 +72,7 @@ object Badges {
         }
 
         val points = s.totalPoints
+        val restedNights = plans.count { (it.sleptMin ?: 0) >= 7 * 60 }
 
         return listOf(
             Badge("first", "First step", "Lock in your first plan", frac(checkIns, 1), "$checkIns check-ins"),
@@ -86,6 +87,7 @@ object Badges {
             Badge("iron", "Iron week", "7 days in a row at 80%+ completion", frac(bestDayRun, 7), "best run $bestDayRun"),
             Badge("steady", "No moves", "7 locked days with no moves and every task checked out", frac(steadyDays, 7), "$steadyDays of 7"),
             Badge("coin", "Thousand", "Earn 1,000 points", frac(points, 1000), "$points points"),
+            Badge("rested", "Well rested", "Log 7 nights of 7+ hours of sleep", frac(restedNights, 7), "$restedNights of 7"),
         )
     }
 

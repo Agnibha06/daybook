@@ -40,6 +40,7 @@ fun InsightsScreen() {
     val cats = Insights.categories(s, 7)
     val apps = Insights.apps(s, 7)
     val facts = Insights.facts(s)
+    val nights = Insights.sleep(s, 14)
     val hasData = sum.checked > 0
 
     Column(
@@ -76,6 +77,59 @@ fun InsightsScreen() {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Tile(Sprites.badgeLock, "Locked in", "${sum.daysLocked}/7", "nights before 3 AM", Modifier.weight(1f), if (sum.daysLocked >= 6) Ink.good else null)
             Tile(Sprites.badgeSteady, "Moves", "${sum.movesUsed}", "used of ${7 * com.agnibha.tracker.MAX_MOVES}", Modifier.weight(1f), null)
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Tile(Sprites.bed, "Sleep", sum.avgSleep?.let { Messages.duration(it) } ?: "–", "average per night", Modifier.weight(1f),
+                sum.avgSleep?.let { if (it >= 7 * 60) Ink.good else if (it >= 6 * 60) Ink.amber else Ink.bad })
+            Tile(Sprites.alarm, "Snoozes", "${sum.snoozes}", "this week", Modifier.weight(1f), if (sum.snoozes == 0) Ink.good else null)
+        }
+
+        // Sleep: 14 nights as columns of half-hour blocks, with a marker at the planned amount.
+        Panel {
+            Text("Sleep", style = Type.h2)
+            Text("Hours slept each night. Amber block = what you planned.", style = Type.small)
+            Spacer(Modifier.height(14.dp))
+            Canvas(Modifier.fillMaxWidth().height(120.dp)) {
+                val n = nights.size
+                val levels = 20 // half hours, up to 10 h
+                val gapX = 5.dp.toPx()
+                val gapY = 1.dp.toPx()
+                val bw = floor((size.width - gapX * (n - 1)) / n)
+                val bh = floor((size.height - gapY * (levels - 1)) / levels)
+                nights.forEachIndexed { i, (_, slept, planned) ->
+                    val x = floor(i * (bw + gapX))
+                    val lit = slept?.let { (it / 30f).roundToInt().coerceIn(0, levels) } ?: 0
+                    val plan = planned?.let { (it / 30f).roundToInt().coerceIn(1, levels) }
+                    val c = when {
+                        slept == null -> Ink.raised
+                        slept >= 7 * 60 -> Ink.sky
+                        slept >= 6 * 60 -> Ink.sky.copy(alpha = 0.65f)
+                        else -> Ink.bad
+                    }
+                    for (l in 0 until levels) {
+                        val y = size.height - (l + 1) * bh - l * gapY
+                        val col = when {
+                            plan != null && l == plan - 1 && l >= lit -> Ink.amber
+                            l < lit -> c
+                            l % 2 == 1 && (l + 1) % 4 == 0 -> Ink.raised // faint 2-hour rungs
+                            else -> Color.Transparent
+                        }
+                        if (col != Color.Transparent) drawRect(col, Offset(x, y), Size(bw, bh))
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth()) {
+                nights.forEach { (d, _, _) ->
+                    Text(
+                        d.dayOfWeek.name.take(1),
+                        style = Type.label.copy(color = if (d == Clock.today()) Ink.amber else Ink.faint, letterSpacing = 0.sp),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
 
         // 14-day completion columns

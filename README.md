@@ -16,6 +16,7 @@ A personal Android discipline tracker. Plan the day between 12:00 and 3:00 AM, g
 - **Log.** A month calendar coloured by how much you finished, with each day's tasks, moves, mood and note.
 - **Badges.** Twelve pixel badges for streaks, zero-unlock blocks, deep-work days and more.
 - **Backup.** Save and restore everything as a JSON file from Settings.
+- **Sleep and wake.** Every plan starts with bedtime and wake-up. A bedtime reminder offers a Sleep button; the app counts hours until you press I'm awake on the wake alarm, which allows three 10-minute snoozes.
 
 ## Run it on your phone
 
@@ -47,4 +48,4 @@ All data stays on the phone.
 
 Pixel art lives in `sprites/sprites.py`; running it regenerates `ui/Sprites.kt` and the app icons.
 
-Fonts: IBM Plex Sans and Pixelify Sans, under the SIL Open Font License.
+Font: Pixelify Sans, under the SIL Open Font License.

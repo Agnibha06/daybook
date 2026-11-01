@@ -84,9 +84,9 @@ fun LogScreen() {
         Label("History")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(month.atDay(1).format(MONTH_FMT), style = Type.h1, modifier = Modifier.weight(1f))
-            ArrowButton("<") { month = month.minusMonths(1) }
+            PixelIconButton(Sprites.arrowLeft) { month = month.minusMonths(1) }
             Spacer(Modifier.width(8.dp))
-            ArrowButton(">", enabled = month < YearMonth.now()) { month = month.plusMonths(1) }
+            PixelIconButton(Sprites.arrowRight, enabled = month < YearMonth.now()) { month = month.plusMonths(1) }
         }
 
         AnimatedContent(
@@ -137,16 +137,6 @@ fun LogScreen() {
             }
         }
         Spacer(Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun ArrowButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Box(
-        Modifier.size(40.dp).background(Ink.surface, PxShapeSmall).clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text, style = Type.num.copy(fontSize = 20.sp, color = if (enabled) Ink.text else Ink.faint))
     }
 }
 
@@ -267,6 +257,26 @@ fun DayDetail(dateKey: String, onClose: () -> Unit) {
         p.lockedAt?.let {
             val z = Instant.ofEpochMilli(it).atZone(Clock.zone)
             Text("Plan locked at ${Messages.time(z.hour * 60 + z.minute)} · +${p.lockPoints} points", style = Type.small)
+        }
+        if (p.wakeAt != null || p.hasSleepPlan) {
+            Panel {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PixelSprite(Sprites.bed, Modifier.size(36.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Label("Sleep", color = Ink.sky)
+                        Text(p.sleptMin?.let { "Slept ${Messages.duration(it)}" } ?: "Sleep not tracked", style = Type.title)
+                        Text(
+                            listOfNotNull(
+                                p.plannedSleepMin?.let { "planned ${Messages.duration(it)}" },
+                                p.wakeAt?.let { w -> Instant.ofEpochMilli(w).atZone(Clock.zone).let { "woke ${Messages.time(it.hour * 60 + it.minute)}" } },
+                                if (p.wakeAt != null) Messages.morningLine(p.snoozes).trimEnd('.').lowercase() else null,
+                            ).joinToString(" · "),
+                            style = Type.small,
+                        )
+                    }
+                }
+            }
         }
         if (p.mood in 1..5 || p.note.isNotBlank()) {
             Panel {

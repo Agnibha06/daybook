@@ -20,6 +20,8 @@ data class Summary(
     val distractMin: Int,
     val movesUsed: Int,
     val daysLocked: Int,
+    val avgSleep: Int?,
+    val snoozes: Int,
 )
 
 data class Fact(val head: String, val body: String)
@@ -59,6 +61,9 @@ object Insights {
             distractMin = checked.sumOf { it.second.distractMin ?: 0 },
             movesUsed = (0 until days).sumOf { s.plan(Clock.key(today.minusDays(it.toLong()))).moves },
             daysLocked = (0 until days).count { s.plan(Clock.key(today.minusDays(it.toLong()))).isLocked },
+            avgSleep = (0 until days).mapNotNull { s.plan(Clock.key(today.minusDays(it.toLong()))).sleptMin }
+                .takeIf { it.isNotEmpty() }?.average()?.roundToInt(),
+            snoozes = (0 until days).sumOf { s.plan(Clock.key(today.minusDays(it.toLong()))).snoozes },
         )
     }
 
@@ -75,6 +80,16 @@ object Insights {
                 avgEff = if (res.isEmpty()) null else res.map { it.efficiency }.average().roundToInt(),
                 locked = p.isLocked,
             )
+        }
+    }
+
+    /** Minutes slept on each of the last [days] nights (null = not tracked), oldest first, with the planned amount. */
+    fun sleep(s: AppState, days: Int = 14): List<Triple<LocalDate, Int?, Int?>> {
+        val today = Clock.today()
+        return (days - 1 downTo 0).map { back ->
+            val d = today.minusDays(back.toLong())
+            val p = s.plan(Clock.key(d))
+            Triple(d, p.sleptMin, p.plannedSleepMin)
         }
     }
 
@@ -225,7 +240,29 @@ object Insights {
             )
         }
 
-        // 9. Missed tasks that were never checked out.
+        // 9. Sleep against the next day's efficiency.
+        val nights = s.plans.values.filter { it.sleptMin != null && it.tasks.any { t -> t.result != null } }
+        val rested = nights.filter { it.sleptMin!! >= 7 * 60 }
+        val short = nights.filter { it.sleptMin!! < 6 * 60 }
+        if (rested.size >= 2 && short.size >= 2) {
+            fun avg(ps: List<DayPlan>) = ps.flatMap { p -> p.tasks.mapNotNull { it.result?.efficiency } }.average().roundToInt()
+            val a = avg(rested)
+            val b = avg(short)
+            if (kotlin.math.abs(a - b) >= 6) out += Fact(
+                if (a > b) "Sleep is your cheapest upgrade" else "Short nights haven't hurt you yet",
+                "After 7+ hours of sleep your tasks average $a% efficiency. After less than 6 hours, $b%.",
+            )
+        }
+        val snoozed = s.plans.values.filter { it.wakeAt != null }
+        if (snoozed.size >= 5) {
+            val first = snoozed.count { it.snoozes == 0 }
+            out += Fact(
+                "Up on the first alarm ${first * 100 / snoozed.size}% of mornings",
+                "Across ${snoozed.size} mornings you used ${snoozed.sumOf { it.snoozes }} snoozes. Putting the phone across the room helps.",
+            )
+        }
+
+        // 10. Missed tasks that were never checked out.
         val ghosts = month.count { it.date.isBefore(Clock.today()) && it.task.result == null && it.plan.isLocked }
         if (ghosts >= 3) out += Fact(
             "$ghosts tasks never got a check-out",

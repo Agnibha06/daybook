@@ -31,11 +31,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -160,17 +156,7 @@ private fun PermRow(p: Perm) {
 
 @Composable
 private fun NameField(value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onChange(it.take(18)) },
-        singleLine = true,
-        textStyle = Type.title,
-        shape = PxShapeSmall,
-        placeholder = { Text("Your name", style = Type.title.copy(color = Ink.faint)) },
-        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-        colors = pixelFieldColors(),
-        modifier = Modifier.fillMaxWidth(),
-    )
+    PixelTextField(value, { onChange(it.take(18)) }, "Your name", capitalization = KeyboardCapitalization.Words)
 }
 
 @Composable
@@ -325,19 +311,9 @@ fun SettingsScreen(onClose: () -> Unit) {
                     Text(a.label, style = Type.title)
                     Text("${a.minutes / 60}h ${a.minutes % 60}m this week", style = Type.small)
                 }
-                Switch(
-                    checked = on,
-                    onCheckedChange = { v ->
-                        Store.update { st -> st.copy(distracting = if (v) st.distracting + a.pkg else st.distracting - a.pkg) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Ink.bg,
-                        checkedTrackColor = Ink.amber,
-                        uncheckedThumbColor = Ink.dim,
-                        uncheckedTrackColor = Ink.raised,
-                        uncheckedBorderColor = Ink.line,
-                    ),
-                )
+                PixelToggle(on) { v ->
+                    Store.update { st -> st.copy(distracting = if (v) st.distracting + a.pkg else st.distracting - a.pkg) }
+                }
             }
         }
 

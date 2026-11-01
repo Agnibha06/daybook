@@ -20,9 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,10 +32,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.agnibha.tracker.Alarms
 import com.agnibha.tracker.Clock
+import com.agnibha.tracker.MAX_SNOOZES
 import com.agnibha.tracker.Messages
 import com.agnibha.tracker.Store
 import java.time.Instant
@@ -103,6 +101,19 @@ fun PlanScreen() {
             )
         }
 
+        StepHeader(1, "Sleep and wake", done = plan.hasSleepPlan)
+        SleepPlanCard(key)
+
+        StepHeader(2, "Tasks", done = plan.tasks.isNotEmpty())
+        if (!plan.hasSleepPlan) {
+            Panel {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PixelSprite(Sprites.badgeLock, Modifier.size(28.dp), muted = true)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Set your bedtime and wake-up first. The day is planned around them.", style = Type.small, modifier = Modifier.weight(1f))
+                }
+            }
+        } else {
         // Quick fills
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (routine.isNotEmpty()) {
@@ -160,7 +171,8 @@ fun PlanScreen() {
             }
         }
 
-        GhostButton("+  Add task", Modifier.fillMaxWidth(), color = Ink.amber) { adding = true }
+        GhostButton("Add task", Modifier.fillMaxWidth(), color = Ink.amber, icon = Sprites.plus) { adding = true }
+        }
 
         // Reflection on yesterday, while the window is open.
         if (windowOpen && !plan.isLocked) {
@@ -168,11 +180,12 @@ fun PlanScreen() {
             Reflection(yKey)
         }
 
-        Spacer(Modifier.height(4.dp))
+        StepHeader(3, "Lock in", done = plan.isLocked)
         if (!plan.isLocked) {
             PrimaryButton(
                 when {
                     !windowOpen -> "Lock-in opens at 12:00 AM"
+                    !plan.hasSleepPlan -> "Set sleep and wake first"
                     plan.tasks.isEmpty() -> "Add a task to lock in"
                     else -> "Lock in today"
                 },
@@ -272,20 +285,99 @@ private fun Reflection(dateKey: String) {
             }
         }
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = note,
-            onValueChange = {
+        PixelTextField(
+            note,
+            {
                 note = it.take(140)
                 Store.setReflection(dateKey, note, mood)
             },
-            textStyle = Type.body.copy(color = Ink.text),
-            shape = PxShapeSmall,
-            placeholder = { Text("What went well, what didn't", style = Type.body.copy(color = Ink.faint)) },
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            colors = pixelFieldColors(),
-            modifier = Modifier.fillMaxWidth(),
+            "What went well, what didn't",
+            singleLine = false,
         )
         Spacer(Modifier.height(6.dp))
         Text("Optional. It shows up in the Log and in your patterns.", style = Type.small)
+    }
+}
+
+/** Numbered step in the nightly plan. The number is real: sleep comes first, then tasks, then lock-in. */
+@Composable
+private fun StepHeader(n: Int, title: String, done: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+        Box(
+            Modifier.size(26.dp).background(if (done) Ink.good else Ink.raised, PxShapeSmall),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (done) PixelSprite(Sprites.check, Modifier.size(14.dp), tint = Ink.bg)
+            else Text("$n", style = Type.num.copy(fontSize = Type.small.fontSize))
+        }
+        Spacer(Modifier.width(10.dp))
+        Label(title, color = if (done) Ink.good else Ink.dim)
+    }
+}
+
+@Composable
+private fun SleepPlanCard(key: String) {
+    val ctx = LocalContext.current
+    val p = Store.state.plan(key)
+    val suggestion = remember(key) { Store.lastSleepPlan(key) ?: (60 to 7 * 60 + 30) }
+    var bed by remember(key) { mutableIntStateOf(p.sleepMin ?: suggestion.first) }
+    var wake by remember(key) { mutableIntStateOf(p.wakeMin ?: suggestion.second) }
+    var picking by remember { mutableStateOf<String?>(null) }
+    val locked = p.isLocked
+    val length = if (bed > wake) (1440 - bed) + wake else wake - bed
+
+    Panel(border = if (!p.hasSleepPlan) Ink.sky else null) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SleepBox(Sprites.bed, "Bedtime", bed, Modifier.weight(1f), enabled = !locked) { picking = "bed" }
+            SleepBox(Sprites.alarm, "Wake up", wake, Modifier.weight(1f), enabled = !locked) { picking = "wake" }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PixelMeter(length / (9 * 60f), Modifier.weight(1f), if (length >= 7 * 60) Ink.good else if (length >= 6 * 60) Ink.amber else Ink.bad, blocks = 18, height = 8.dp)
+            Spacer(Modifier.width(10.dp))
+            Text(Messages.duration(length), style = Type.num)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            when {
+                locked -> "Locked with the plan. The alarm rings at ${Messages.time(wake)} with up to $MAX_SNOOZES snoozes."
+                p.hasSleepPlan -> "${Messages.sleepVerdict(length)} Alarm set for ${Messages.time(wake)}."
+                else -> "Pick when you'll sleep and wake. The wake-up alarm comes from here."
+            },
+            style = Type.small,
+        )
+        if (!p.hasSleepPlan) {
+            Spacer(Modifier.height(12.dp))
+            PrimaryButton("Set sleep plan", color = Ink.sky, shadow = Ink.sky.copy(alpha = 0.45f)) {
+                Store.setSleepPlan(ctx, key, bed, wake)
+            }
+        }
+    }
+
+    picking?.let { which ->
+        PixelTimeDialog(if (which == "bed") bed else wake, if (which == "bed") "Bedtime" else "Wake up", { picking = null }) { m ->
+            if (which == "bed") bed = m else wake = m
+            picking = null
+            if (p.hasSleepPlan) Store.setSleepPlan(ctx, key, bed, wake)
+        }
+    }
+}
+
+@Composable
+private fun SleepBox(sprite: Sprite, label: String, min: Int, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier
+            .background(Ink.bg, PxShapeSmall)
+            .border(2.dp, Ink.line, PxShapeSmall)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PixelSprite(sprite, Modifier.size(28.dp))
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(label, style = Type.small)
+            Text(Messages.time(min), style = Type.num.copy(fontSize = Type.h2.fontSize))
+        }
     }
 }

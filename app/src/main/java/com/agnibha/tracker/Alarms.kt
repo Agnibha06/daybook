@@ -18,7 +18,7 @@ import androidx.core.app.NotificationCompat
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-enum class Kind { PLAN_REMIND, PLAN_LAST_CALL, PLAN_DEADLINE, TASK_SOON, TASK_END, TEST }
+enum class Kind { PLAN_REMIND, PLAN_LAST_CALL, PLAN_DEADLINE, TASK_SOON, TASK_END, TEST, WAKE, BEDTIME }
 
 object Alarms {
     const val EXTRA_KIND = "kind"
@@ -31,6 +31,8 @@ object Alarms {
         Kind.PLAN_LAST_CALL -> 102
         Kind.PLAN_DEADLINE -> 103
         Kind.TEST -> 104
+        Kind.WAKE -> 105
+        Kind.BEDTIME -> 106
         else -> "$kind|$date|$taskId".hashCode()
     }
 
@@ -79,6 +81,38 @@ object Alarms {
     fun scheduleAll(ctx: Context) {
         scheduleDaily(ctx)
         scheduleTasks(ctx, Clock.todayKey())
+        scheduleSleep(ctx)
+    }
+
+    /**
+     * The next wake alarm and bedtime reminder, from today's or tomorrow's plan.
+     * A snooze pushes the wake alarm to its snooze time.
+     */
+    fun scheduleSleep(ctx: Context) {
+        val am = ctx.getSystemService(AlarmManager::class.java) ?: return
+        val now = System.currentTimeMillis()
+        val days = listOf(Clock.today(), Clock.today().plusDays(1)).map { Clock.key(it) }
+
+        val wake = days.mapNotNull { k ->
+            val p = Store.state.plan(k)
+            val w = p.wakeMin ?: return@mapNotNull null
+            if (p.wakeAt != null) return@mapNotNull null
+            val at = maxOf(Clock.epoch(k, w), p.snoozeUntil ?: 0L)
+            if (at > now) k to at else null
+        }.minByOrNull { it.second }
+        if (wake != null) pending(ctx, Kind.WAKE, wake.first, null)?.let { set(ctx, wake.second, it) }
+        else pending(ctx, Kind.WAKE, null, null, noCreate = true)?.let { am.cancel(it) }
+
+        val bed = if (Store.state.sleepingSince != null) null else days.mapNotNull { k ->
+            val at = Store.bedtimeEpoch(k) ?: return@mapNotNull null
+            if (at > now && Store.state.plan(k).sleepStart == null) k to at else null
+        }.minByOrNull { it.second }
+        if (bed != null) pending(ctx, Kind.BEDTIME, bed.first, null)?.let { set(ctx, bed.second, it) }
+        else pending(ctx, Kind.BEDTIME, null, null, noCreate = true)?.let { am.cancel(it) }
+    }
+
+    fun snooze(ctx: Context, dateKey: String, at: Long) {
+        pending(ctx, Kind.WAKE, dateKey, null)?.let { set(ctx, at, it) }
     }
 
     fun scheduleDaily(ctx: Context) {
@@ -254,6 +288,20 @@ class AlarmReceiver : BroadcastReceiver() {
                 ctx, kind, null, null, "Test alert",
                 "This is how task alerts look. It keeps ringing until you press the button.", insistent = true,
             )
+            Kind.WAKE -> {
+                val d = date ?: today
+                val p = Store.state.plan(d)
+                if (p.wakeAt == null) {
+                    Alerts.show(ctx, kind, d, null, "Wake up", Messages.wakeBody(Store.sleepingMinutes()), insistent = true)
+                }
+            }
+            Kind.BEDTIME -> {
+                if (Store.state.sleepingSince == null) {
+                    val d = date ?: today
+                    Alerts.show(ctx, kind, d, null, "Time to sleep", Messages.bedtimeBody(Store.state.plan(d)), insistent = false)
+                }
+                Alarms.scheduleSleep(ctx)
+            }
             Kind.TASK_SOON -> {
                 val t = if (date != null && taskId != null) Store.findTask(date, taskId) else null
                 if (t != null && t.result == null) {
