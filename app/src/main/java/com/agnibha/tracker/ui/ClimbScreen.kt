@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -247,23 +248,28 @@ private fun BadgeGrid() {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("$earned of ${all.size} earned", style = Type.small)
-        all.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { b ->
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .background(Ink.surface, PxShape)
-                            .clickable { Toaster.show(if (b.earned) "${b.name}: ${b.how}." else "${b.how}. Now: ${b.detail}.") }
-                            .padding(vertical = 14.dp, horizontal = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+        all.chunked(3).forEachIndexed { r, row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEachIndexed { c, b ->
+                    val i = r * 3 + c
+                    // Stickers: each one sits at its own slight angle, earned ones a little raised.
+                    val tilt = listOf(-2.5f, 1.5f, -1f, 2.5f, -1.5f, 1f)[i % 6]
+                    PixelBox(
+                        Modifier.weight(1f).appear(i).graphicsLayer { rotationZ = if (b.earned) tilt else 0f },
+                        color = if (b.earned) Ink.raised else Ink.surface,
+                        depth = if (b.earned) 4.dp else 2.dp,
+                        padding = androidx.compose.foundation.layout.PaddingValues(vertical = 14.dp, horizontal = 8.dp),
+                        onClick = { Toaster.show(if (b.earned) "${b.name}: ${b.how}." else "${b.how}. Now: ${b.detail}.") },
                     ) {
-                        PixelSprite(badgeSprite(b.id), Modifier.size(52.dp), muted = !b.earned, alpha = if (b.earned) 1f else 0.7f)
-                        Spacer(Modifier.height(8.dp))
-                        Text(b.name, style = Type.small.copy(color = if (b.earned) Ink.text else Ink.dim), textAlign = TextAlign.Center, maxLines = 1)
-                        Spacer(Modifier.height(6.dp))
-                        if (b.earned) Text("earned", style = Type.label.copy(color = Ink.amber))
-                        else PixelMeter(b.progress, Modifier.padding(horizontal = 6.dp), Ink.amber, blocks = 8, height = 6.dp)
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (b.earned) Peek(badgeSprite(b.id), size = 52.dp)
+                            else PixelSprite(badgeSprite(b.id), Modifier.size(52.dp), muted = true, alpha = 0.7f)
+                            Spacer(Modifier.height(8.dp))
+                            Text(b.name, style = Type.small.copy(color = if (b.earned) Ink.text else Ink.dim), textAlign = TextAlign.Center, maxLines = 1)
+                            Spacer(Modifier.height(6.dp))
+                            if (b.earned) Text("earned", style = Type.label.copy(color = Ink.amber))
+                            else PixelMeter(b.progress, Modifier.padding(horizontal = 6.dp), Ink.amber, blocks = 8, height = 6.dp)
+                        }
                     }
                 }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }

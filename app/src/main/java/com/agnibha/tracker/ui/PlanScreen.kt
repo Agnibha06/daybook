@@ -71,10 +71,8 @@ fun PlanScreen() {
 
         // Window status
         val windowOpen = Clock.inWindow() && isToday
-        Panel(border = if (windowOpen) Ink.amber else null) {
+        Panel(Modifier.appear(1), border = if (windowOpen) Ink.amber else null, sprite = if (windowOpen) Sprites.badgeLock else Sprites.badgeEarly) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PixelSprite(if (windowOpen) Sprites.badgeLock else Sprites.badgeEarly, Modifier.size(24.dp))
-                Spacer(Modifier.width(10.dp))
                 Text(
                     if (windowOpen) "Window open" else "Window opens at 12:00 AM",
                     style = Type.title.copy(color = if (windowOpen) Ink.amber else Ink.text),
@@ -160,11 +158,12 @@ fun PlanScreen() {
             }
         } else {
             Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                plan.sortedTasks.forEach { t ->
+                plan.sortedTasks.forEachIndexed { i, t ->
                     TaskRow(
-                        t,
-                        Messages.duration(t.durationMin),
-                        Ink.faint,
+                        modifier = Modifier.appear(3 + i),
+                        t = t,
+                        status = Messages.duration(t.durationMin),
+                        statusColor = Ink.faint,
                         subtitle = "${Messages.time(t.startMin)} – ${Messages.time(t.endMin)}" + (if (t.carriedFrom != null) " · carried over" else ""),
                     ) { editing = t.id }
                 }
@@ -326,7 +325,7 @@ private fun SleepPlanCard(key: String) {
     val locked = p.isLocked
     val length = if (bed > wake) (1440 - bed) + wake else wake - bed
 
-    Panel(border = if (!p.hasSleepPlan) Ink.sky else null) {
+    Panel(Modifier.appear(2), border = if (!p.hasSleepPlan) Ink.sky else null, sprite = Sprites.zzz) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SleepBox(Sprites.bed, "Bedtime", bed, Modifier.weight(1f), enabled = !locked) { picking = "bed" }
             SleepBox(Sprites.alarm, "Wake up", wake, Modifier.weight(1f), enabled = !locked) { picking = "wake" }

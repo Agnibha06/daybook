@@ -365,29 +365,38 @@ fun TaskRow(
     statusColor: Color,
     highlight: Boolean = false,
     subtitle: String? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val done = t.result != null
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(if (highlight) Ink.raised else Ink.surface, PxShape)
-            .then(if (highlight) Modifier.border(2.dp, t.category.tint().copy(alpha = 0.6f), PxShape) else Modifier)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    PixelBox(
+        modifier.fillMaxWidth(),
+        color = if (highlight) Ink.raised else Ink.surface,
+        border = if (highlight) t.category.tint().copy(alpha = 0.7f) else null,
+        depth = if (done) 2.dp else 4.dp,
+        padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        onClick = onClick,
     ) {
-        CategoryBadge(t, 38.dp, done)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(t.title, style = Type.title.copy(color = if (done) Ink.dim else Ink.text), maxLines = 1)
-            Text(
-                subtitle ?: "${Messages.time(t.startMin)} – ${Messages.time(t.endMin)}" + if (t.moved > 0) " · moved" else "",
-                style = Type.small,
-                maxLines = 1,
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CategoryBadge(t, 38.dp, done)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(t.title, style = Type.title.copy(color = if (done) Ink.dim else Ink.text), maxLines = 1)
+                Text(
+                    subtitle ?: ("${Messages.time(t.startMin)} – ${Messages.time(t.endMin)}" + if (t.moved > 0) " · moved" else ""),
+                    style = Type.small,
+                    maxLines = 1,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            if (t.result != null && t.result.outcome == Outcome.DONE) {
+                PixelSprite(Sprites.check, Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+            } else if (t.result?.outcome == Outcome.MISSED) {
+                PixelSprite(Sprites.cross, Modifier.size(12.dp))
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(status, style = Type.num.copy(fontSize = Type.small.fontSize, color = statusColor))
         }
-        Spacer(Modifier.width(8.dp))
-        Text(status, style = Type.num.copy(fontSize = Type.small.fontSize, color = statusColor))
     }
 }

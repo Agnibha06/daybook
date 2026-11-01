@@ -272,10 +272,23 @@ private fun ToastHost(modifier: Modifier) {
 @Composable
 private fun BottomBar(current: Tab, onPick: (Tab) -> Unit) {
     Column {
-        Row(Modifier.fillMaxWidth().height(2.dp)) {
-            Tab.entries.forEach { t ->
-                Box(Modifier.weight(1f).height(2.dp).background(if (t == current) Ink.amber else Ink.line))
-            }
+        // A block that slides to the selected tab, with a little overshoot.
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(4.dp)) {
+            val w = maxWidth / Tab.entries.size
+            val x by androidx.compose.animation.core.animateDpAsState(
+                w * current.ordinal,
+                spring(dampingRatio = 0.6f, stiffness = 420f),
+                label = "indicator",
+            )
+            Box(Modifier.fillMaxWidth().height(2.dp).align(Alignment.BottomStart).background(Ink.line))
+            Box(
+                Modifier
+                    .graphicsLayer { translationX = x.toPx() }
+                    .width(w)
+                    .height(4.dp)
+                    .padding(horizontal = w / 4)
+                    .background(Ink.amber, PxShapeSmall),
+            )
         }
         Row(Modifier.fillMaxWidth().background(Ink.bg).padding(vertical = 8.dp)) {
             Tab.entries.forEach { t ->

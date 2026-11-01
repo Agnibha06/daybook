@@ -175,7 +175,7 @@ fun SetupScreen() {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 28.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PixelSprite(Sprites.launcher, Modifier.size(28.dp))
+                PixelSprite(Sprites.logo, Modifier.size(width = 35.dp, height = 28.dp))
                 Spacer(Modifier.width(10.dp))
                 Text("Daybook", style = Type.h2)
             }

@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -67,18 +68,6 @@ object Toaster {
 @Composable
 fun Label(text: String, modifier: Modifier = Modifier, color: Color = Ink.faint) {
     Text(text.uppercase(), style = Type.label.copy(color = color), modifier = modifier)
-}
-
-@Composable
-fun Panel(
-    modifier: Modifier = Modifier,
-    color: Color = Ink.surface,
-    border: Color? = null,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    var m = modifier.fillMaxWidth().background(color, PxShape)
-    if (border != null) m = m.border(2.dp, border, PxShape)
-    Column(m.padding(16.dp), content = content)
 }
 
 /** Chunky button with a pixel drop-shadow that sinks when pressed. */
@@ -261,11 +250,19 @@ private fun Stepper(value: String, onUp: () -> Unit, onDown: () -> Unit) {
 
 @Composable
 fun Chip(text: String, selected: Boolean, color: Color = Ink.amber, sprite: Sprite? = null, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        if (pressed) 0.9f else 1f,
+        androidx.compose.animation.core.spring(dampingRatio = 0.4f, stiffness = 700f),
+        label = "chip",
+    )
     Row(
         Modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .background(if (selected) color.copy(alpha = 0.16f) else Ink.raised, PxShapeSmall)
             .border(2.dp, if (selected) color else Color.Transparent, PxShapeSmall)
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -346,7 +343,7 @@ fun PixelMeter(
 @Composable
 fun Metric(value: String, label: String, modifier: Modifier = Modifier, color: Color = Ink.text) {
     Column(modifier) {
-        Text(value, style = Type.num.copy(fontSize = 22.sp, color = color))
+        CountText(value, Type.num.copy(fontSize = 22.sp, color = color))
         Spacer(Modifier.height(2.dp))
         Text(label, style = Type.small)
     }

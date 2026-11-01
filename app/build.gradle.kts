@@ -12,8 +12,8 @@ android {
         applicationId = "com.agnibha.tracker"
         minSdk = 28
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
     // One fixed key for every build (Android Studio and GitHub), so updates install

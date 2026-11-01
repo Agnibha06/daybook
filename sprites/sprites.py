@@ -686,6 +686,27 @@ S["cross"] = [
     "oo...oo",
 ]
 
+
+# ---------- Logo (20x16): an open daybook, night page and day page ----------
+S["logo"] = [
+    "....................",
+    ".nnnnnnnnccwwwwwwww.",
+    ".nnnnnnynccwwwwwwww.",
+    ".nnnwwnnnccwwwyywww.",
+    ".nnwwnnnnccwwyyyyww.",
+    ".nnwwnnynccwyyaayyw.",
+    ".nnwwnnnnccwyyaayyw.",
+    ".nnnwwnnnccwwyyyyww.",
+    ".nynnnnnnccwwwyywww.",
+    ".nnnnnnnnccwwwwwwww.",
+    ".nnnnnnnnccwgggggww.",
+    ".nnnnnnnnccwwwwwwww.",
+    ".nnnnnnnnccwggggwww.",
+    "aaaaaaaaaccaaaaaaaaa",
+    ".oooooooooooooooooo.",
+    "....................",
+]
+
 # ---------- Launcher (16x16) ----------
 S["launcher"] = [
     "................",
@@ -746,7 +767,7 @@ def kotlin():
     return "\n".join(out) + "\n"
 
 
-def vector(rows, px, offset, mono=None):
+def vector(rows, px, offset, mono=None, oy=None):
     """Android vector drawable: one path per colour, one square per pixel."""
     w = len(rows[0])
     h = len(rows)
@@ -767,7 +788,7 @@ def vector(rows, px, offset, mono=None):
                 run += 1
             key = mono if mono else ch
             X = offset + x * px
-            Y = offset + y * px
+            Y = (offset if oy is None else oy) + y * px
             paths.setdefault(key, []).append(f"M{X:g},{Y:g}h{run * px:g}v{px:g}h{-run * px:g}z")
             x += run
     lines = [
@@ -783,6 +804,25 @@ def vector(rows, px, offset, mono=None):
         lines.append(f'    <path android:fillColor="{color}" android:pathData="{"".join(segs)}" />')
     lines.append("</vector>")
     return "\n".join(lines) + "\n"
+
+
+def background():
+    """Night sky behind the logo: flat ink with a few pixel stars."""
+    stars = [(14, 18, "F0A23B"), (88, 14, "ECE8E1"), (22, 84, "7FA7E8"), (90, 80, "ECE8E1"), (60, 10, "7FA7E8"), (8, 50, "ECE8E1"), (98, 46, "F0A23B")]
+    out = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<vector xmlns:android="http://schemas.android.com/apk/res/android"',
+        '    android:width="108dp"',
+        '    android:height="108dp"',
+        '    android:viewportWidth="108"',
+        '    android:viewportHeight="108">',
+        '    <path android:fillColor="#FF171A23" android:pathData="M0,0h108v108h-108z" />',
+        '    <path android:fillColor="#FF1F2430" android:pathData="M0,76h108v32h-108z" />',
+    ]
+    for x, y, c in stars:
+        out.append(f'    <path android:fillColor="#AA{c}" android:pathData="M{x},{y}h3v3h-3z" />')
+    out.append("</vector>")
+    return "\n".join(out) + "\n"
 
 
 def preview(path):
@@ -812,7 +852,8 @@ if __name__ == "__main__":
     root = sys.argv[1]
     open(f"{root}/app/src/main/java/com/agnibha/tracker/ui/Sprites.kt", "w").write(kotlin())
     # Launcher: 16 px sprite at 4 units per pixel inside the 66-unit safe zone.
-    open(f"{root}/app/src/main/res/drawable/ic_launcher_fg.xml", "w").write(vector(S["launcher"], 4, 22))
-    open(f"{root}/app/src/main/res/drawable/ic_stat.xml", "w").write(vector(S["tab_climb"], 0, 0, mono="w"))
+    open(f"{root}/app/src/main/res/drawable/ic_launcher_fg.xml", "w").write(vector(S["logo"], 3.3, 21, oy=27))
+    open(f"{root}/app/src/main/res/drawable/ic_stat.xml", "w").write(vector(S["logo"], 0, 0, mono="w"))
+    open(f"{root}/app/src/main/res/drawable/ic_launcher_bg.xml", "w").write(background())
     preview(f"{root}/sprites/preview.png")
     print("ok", len(S), "sprites")

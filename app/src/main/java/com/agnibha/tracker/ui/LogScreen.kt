@@ -33,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,7 +121,7 @@ fun LogScreen() {
                                         Spacer(Modifier.weight(1f).aspectRatio(1f))
                                     } else {
                                         val d = m.atDay(idx + 1)
-                                        DayCell(d, s.plan(Clock.key(d)), Modifier.weight(1f))
+                                        DayCell(d, s.plan(Clock.key(d)), Modifier.weight(1f).pop(idx))
                                     }
                                 }
                             }
@@ -147,6 +149,17 @@ private fun Legend(color: Color, label: String, border: Boolean = false) {
         Spacer(Modifier.width(5.dp))
         Text(label, style = Type.small.copy(fontSize = 11.sp))
     }
+}
+
+/** Calendar cells pop in one after another, like tiles being laid. */
+@Composable
+private fun Modifier.pop(index: Int): Modifier {
+    val a = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(12L * index)
+        a.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 500f))
+    }
+    return this.graphicsLayer { scaleX = a.value; scaleY = a.value; alpha = a.value.coerceIn(0f, 1f) }
 }
 
 @Composable
@@ -187,12 +200,9 @@ private fun MonthSummary(m: YearMonth) {
         SummaryTile("Focus", if (focus == 0) "–" else Messages.duration(focus), Modifier.weight(1f))
     }
     if (bestDay != null) {
-        Panel(modifier = Modifier.clickable { Nav.day = bestDay.date }) {
+        Panel(tab = "Best day this month", tabColor = Ink.good, sprite = Sprites.badgeSweep, onClick = { Nav.day = bestDay.date }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PixelSprite(Sprites.badgeSweep, Modifier.size(28.dp))
-                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Label("Best day this month")
                     Text(LocalDate.parse(bestDay.date).format(LONG_FMT), style = Type.title)
                 }
                 Text("${((completion(bestDay) ?: 0f) * 100).roundToInt()}%", style = Type.h2.copy(color = Ink.good))
@@ -201,20 +211,17 @@ private fun MonthSummary(m: YearMonth) {
     }
     val notes = ps.filter { it.note.isNotBlank() }.sortedByDescending { it.date }.take(5)
     if (notes.isNotEmpty()) {
-        Label("Notes")
-        notes.forEach { p ->
-            Panel(modifier = Modifier.clickable { Nav.day = p.date }) {
-                Row(verticalAlignment = Alignment.Top) {
-                    if (p.mood in 1..5) {
-                        PixelSprite(moodSprites[p.mood - 1], Modifier.size(24.dp))
-                        Spacer(Modifier.width(10.dp))
-                    }
-                    Column {
-                        Text(LocalDate.parse(p.date).format(LONG_FMT), style = Type.label)
-                        Spacer(Modifier.height(2.dp))
-                        Text(p.note, style = Type.body.copy(color = Ink.text))
-                    }
-                }
+        PixelDivider(Sprites.tabPlan)
+        notes.forEachIndexed { i, p ->
+            SpeechBubble(
+                "",
+                Modifier.clickable { Nav.day = p.date },
+                fromRight = i % 2 == 1,
+                speaker = if (p.mood in 1..5) moodSprites[p.mood - 1] else Sprites.climberA,
+            ) {
+                Text(LocalDate.parse(p.date).format(LONG_FMT), style = Type.label)
+                Spacer(Modifier.height(2.dp))
+                Text(p.note, style = Type.body.copy(color = Ink.text))
             }
         }
     }
@@ -222,10 +229,12 @@ private fun MonthSummary(m: YearMonth) {
 
 @Composable
 private fun SummaryTile(label: String, value: String, modifier: Modifier) {
-    Column(modifier.background(Ink.surface, PxShape).padding(12.dp)) {
-        Label(label)
-        Spacer(Modifier.height(6.dp))
-        Text(value, style = Type.h2)
+    PixelBox(modifier, padding = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
+        Column {
+            Label(label)
+            Spacer(Modifier.height(6.dp))
+            CountText(value, Type.h2)
+        }
     }
 }
 

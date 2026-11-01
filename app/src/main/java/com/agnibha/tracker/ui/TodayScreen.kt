@@ -4,6 +4,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,30 +65,41 @@ fun TodayScreen() {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Header
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f)) {
-                Label(Clock.today().format(TODAY_FMT))
-                Spacer(Modifier.height(6.dp))
-                Text("${Messages.greeting(Clock.now().hour)},\n${s.username}", style = Type.h1)
-            }
-            Box(Modifier.background(Ink.surface, PxShapeSmall).clickable { Nav.settings = true }.padding(8.dp)) {
-                PixelSprite(Sprites.gear, Modifier.size(24.dp))
-            }
+        // Header: the climber says hello
+        Row(Modifier.fillMaxWidth().appear(0), verticalAlignment = Alignment.CenterVertically) {
+            Label(Clock.today().format(TODAY_FMT), Modifier.weight(1f))
+            PixelIconButton(Sprites.gear) { Nav.settings = true }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatPill(Sprites.tabClimb, streak.toString(), "streak", Ink.amber, Modifier.weight(1f))
-            StatPill(Sprites.badgeCoin, s.totalPoints.toString(), "lv ${Scoring.level(s.totalPoints)}", Ink.text, Modifier.weight(1f))
-            StatPill(Sprites.badgeSteady, "${Store.movesLeft(key)}", "moves", Ink.sky, Modifier.weight(1f))
+        SpeechBubble(
+            "",
+            Modifier.appear(1),
+            speaker = Sprites.climberA,
+        ) {
+            Text("${Messages.greeting(Clock.now().hour)}, ${s.username}", style = Type.h2)
+            Text(headline(streak, plan.isLocked, tasks.size), style = Type.small)
         }
 
-        SleepCard()
+        // Bento: one tall streak tile, two short ones beside it
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).appear(2), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PixelBox(Modifier.weight(1.15f).fillMaxHeight(), color = Ink.raised, onClick = { Nav.tab = Tab.CLIMB }) {
+                Column {
+                    PixelSprite(Sprites.tabClimb, Modifier.size(34.dp))
+                    Spacer(Modifier.height(10.dp))
+                    CountText("$streak", Type.bigNum.copy(color = Ink.amber))
+                    Text(if (streak == 1) "day streak" else "day streak", style = Type.small)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                MiniTile(Sprites.badgeCoin, "${s.totalPoints}", "points · lv ${Scoring.level(s.totalPoints)}", Ink.text)
+                MiniTile(Sprites.badgeSteady, "${Store.movesLeft(key)}", "moves left", Ink.sky)
+            }
+        }
+
+        Box(Modifier.appear(3)) { SleepCard() }
 
         // Tonight's check-in
         if (Store.streakAtRisk(s)) {
-            Panel(border = Ink.amber) {
-                Label("Planning window open", color = Ink.amber)
-                Spacer(Modifier.height(6.dp))
+            Panel(Modifier.appear(4), border = Ink.amber, tab = "Planning window open", sprite = Sprites.badgeLock) {
                 Text(
                     if (streak > 0) "Lock in today before 3:00 AM to make it day ${streak + 1}." else "Lock in today before 3:00 AM to start your streak.",
                     style = Type.title,
@@ -110,11 +127,9 @@ fun TodayScreen() {
         val current = tasks.firstOrNull { it.result == null && it.startMin <= nowMin && nowMin < it.endMin }
         val next = tasks.firstOrNull { it.result == null && it.startMin > nowMin }
         if (dayLive && current != null) {
-            NowCard(current, nowMs) { sheetFor = current.id }
+            Box(Modifier.appear(4)) { NowCard(current, nowMs) { sheetFor = current.id } }
         } else if (dayLive && next != null) {
-            Panel(modifier = Modifier.clickable { sheetFor = next.id }) {
-                Label("Up next")
-                Spacer(Modifier.height(8.dp))
+            Panel(Modifier.appear(4), tab = "Up next", tabColor = next.category.tint(), onClick = { sheetFor = next.id }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge(next, 44.dp)
                     Spacer(Modifier.width(12.dp))
@@ -126,7 +141,7 @@ fun TodayScreen() {
                 }
             }
         } else if (dayLive && tasks.isNotEmpty() && tasks.all { it.result != null }) {
-            Panel {
+            Panel(Modifier.appear(4), tab = "Done", tabColor = Ink.good) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     PixelSprite(Sprites.badgeSweep, Modifier.size(36.dp))
                     Spacer(Modifier.width(12.dp))
@@ -142,7 +157,6 @@ fun TodayScreen() {
         val pending = if (dayLive) tasks.filter { it.result == null && it.endMin <= nowMin } else emptyList()
         AnimatedVisibility(pending.isNotEmpty(), enter = fadeIn() + expandVertically()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Label("Needs check-out", color = Ink.amber)
                 pending.forEach { t -> CheckOutCard(t, key) }
             }
         }
@@ -152,19 +166,21 @@ fun TodayScreen() {
             val checked = tasks.mapNotNull { it.result }
             val done = checked.count { it.outcome == Outcome.DONE }
             val eff = checked.filter { it.outcome != Outcome.MISSED }.map { it.efficiency }
-            Spacer(Modifier.height(2.dp))
+            PixelDivider(Sprites.tabPlan)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Label("Today")
+                Label("Today's path")
                 Text(
                     "$done of ${tasks.size} done" + (if (eff.isNotEmpty()) " · ${eff.average().toInt()}% avg" else ""),
                     style = Type.small,
                 )
             }
             PixelMeter(checked.size / tasks.size.toFloat(), blocks = tasks.size.coerceIn(4, 24), color = Ink.amber)
-            Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                tasks.forEach { t ->
+            Column(Modifier.animateContentSize()) {
+                tasks.forEachIndexed { i, t ->
                     val (status, color) = statusOf(t, nowMin, dayLive)
-                    TaskRow(t, status, color, highlight = t.id == current?.id) { sheetFor = t.id }
+                    PathRow(t, i, i == tasks.lastIndex, nowMin, Modifier.appear(5 + i)) {
+                        TaskRow(t, status, color, highlight = t.id == current?.id) { sheetFor = t.id }
+                    }
                 }
             }
         }
@@ -192,6 +208,64 @@ fun TodayScreen() {
     }
 }
 
+private fun headline(streak: Int, locked: Boolean, tasks: Int): String = when {
+    !locked && Clock.inWindow() -> "The planning window is open. Let's set up today."
+    tasks == 0 -> "Nothing planned yet. Add something below."
+    streak >= 7 -> "Day $streak of the climb. $tasks things on the path today."
+    else -> "$tasks things on the path today. One at a time."
+}
+
+/** A bento tile: sprite, number, caption. */
+@Composable
+private fun MiniTile(sprite: Sprite, value: String, label: String, color: Color) {
+    PixelBox(Modifier.fillMaxWidth(), padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PixelSprite(sprite, Modifier.size(22.dp))
+            Spacer(Modifier.width(10.dp))
+            Column {
+                CountText(value, Type.num.copy(fontSize = 20.sp, color = color))
+                Text(label, style = Type.small, maxLines = 1)
+            }
+        }
+    }
+}
+
+/**
+ * One stop on the day's path: a rail with a node on the left, and the card stepping
+ * in and out along it so the list reads as a winding trail rather than a stack.
+ */
+@Composable
+private fun PathRow(t: Task, index: Int, last: Boolean, nowMin: Int, modifier: Modifier, content: @Composable () -> Unit) {
+    val offsets = listOf(0, 14, 24, 14)
+    val shift = offsets[index % offsets.size]
+    val node = when {
+        t.result != null && t.result.outcome == Outcome.MISSED -> Ink.bad
+        t.result != null -> Ink.good
+        t.startMin <= nowMin && nowMin < t.endMin -> Ink.amber
+        else -> Ink.line
+    }
+    Row(modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Canvas(Modifier.width((shift + 22).dp).fillMaxHeight()) {
+            val p = 3.dp.toPx()
+            val x = size.width - 14.dp.toPx()
+            val cy = size.height / 2f - 2.dp.toPx()
+            // Dotted rail down to the next stop
+            var y = 0f
+            while (y < size.height) {
+                if (last && y > cy) break
+                drawRect(Ink.line, Offset(x, y), Size(p, p))
+                y += p * 2
+            }
+            // Node: a 3x3 block with a lighter centre
+            drawRect(node, Offset(x - p, cy - p), Size(p * 3, p * 3))
+            drawRect(Ink.bg, Offset(x, cy), Size(p, p), alpha = 0.35f)
+            // Spur to the card
+            drawRect(Ink.line, Offset(x + 2 * p, cy), Size(size.width - x - 2 * p, p))
+        }
+        Box(Modifier.weight(1f).padding(vertical = 4.dp)) { content() }
+    }
+}
+
 fun statusOf(t: Task, nowMin: Int, dayLive: Boolean): Pair<String, Color> {
     val r = t.result
     val isNow = r == null && t.startMin <= nowMin && nowMin < t.endMin
@@ -206,34 +280,15 @@ fun statusOf(t: Task, nowMin: Int, dayLive: Boolean): Pair<String, Color> {
 }
 
 @Composable
-private fun StatPill(sprite: Sprite, value: String, label: String, color: Color, modifier: Modifier) {
-    Row(
-        modifier.background(Ink.surface, PxShapeSmall).padding(horizontal = 10.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PixelSprite(sprite, Modifier.size(20.dp))
-        Spacer(Modifier.width(8.dp))
-        Column {
-            Text(value, style = Type.num.copy(color = color))
-            Text(label, style = Type.label.copy(fontSize = Type.label.fontSize * 0.9f))
-        }
-    }
-}
-
-@Composable
 private fun NowCard(t: Task, nowMs: Long, onOpen: () -> Unit) {
     val start = Clock.epoch(Clock.todayKey(), t.startMin)
     val end = Clock.epoch(Clock.todayKey(), t.endMin)
     val progress = ((nowMs - start).toFloat() / (end - start).coerceAtLeast(1L)).coerceIn(0f, 1f)
-    Panel(modifier = Modifier.clickable(onClick = onOpen), border = t.category.tint().copy(alpha = 0.7f)) {
+    Panel(border = t.category.tint().copy(alpha = 0.7f), tab = "Now", tabColor = t.category.tint(), sprite = t.category.sprite(), onClick = onOpen) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PixelSprite(t.category.sprite(), Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Label("Now · ${t.category.label}", color = t.category.tint())
-                }
-                Spacer(Modifier.height(8.dp))
+                Label(t.category.label, color = t.category.tint())
+                Spacer(Modifier.height(4.dp))
                 Text(t.title, style = Type.h2)
                 Text("${Messages.time(t.startMin)} – ${Messages.time(t.endMin)}", style = Type.small)
             }
@@ -256,7 +311,7 @@ private fun NowCard(t: Task, nowMs: Long, onOpen: () -> Unit) {
 @Composable
 private fun CheckOutCard(t: Task, key: String) {
     val ctx = LocalContext.current
-    Panel {
+    Panel(tab = "Check out", tabColor = Ink.amber) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CategoryBadge(t, 36.dp)
             Spacer(Modifier.width(12.dp))
@@ -291,12 +346,11 @@ private fun SleepCard() {
         (Store.wakeEpoch(Clock.todayKey()) ?: Long.MAX_VALUE) < System.currentTimeMillis() && hour in 4..13
 
     when {
-        hour >= 21 || hour < 4 || nearBed -> Panel(color = Ink.surface, border = Ink.sky.copy(alpha = 0.6f)) {
+        hour >= 21 || hour < 4 || nearBed -> Panel(border = Ink.sky.copy(alpha = 0.6f), tab = "Night", tabColor = Ink.sky, sprite = Sprites.zzz) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PixelSprite(Sprites.bed, Modifier.size(44.dp))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Label("Night", color = Ink.sky)
                     Text(
                         target.sleepMin?.let { "Bedtime ${Messages.time(it)}" } ?: "Going to bed?",
                         style = Type.h2,
@@ -310,7 +364,7 @@ private fun SleepCard() {
             Spacer(Modifier.height(12.dp))
             PrimaryButton("Sleep now", color = Ink.sky, shadow = Ink.sky.copy(alpha = 0.45f)) { Store.startSleep(ctx) }
         }
-        missedWake -> Panel {
+        missedWake -> Panel(tab = "Morning", tabColor = Ink.amber) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PixelSprite(Sprites.sunRise, Modifier.size(44.dp))
                 Spacer(Modifier.width(12.dp))
@@ -327,10 +381,7 @@ private fun SleepCard() {
         }
         today.wakeAt != null && hour < 13 -> {
             val slept = today.sleptMin
-            Row(
-                Modifier.fillMaxWidth().background(Ink.surface, PxShape).padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            PixelBox(Modifier.fillMaxWidth(), padding = androidx.compose.foundation.layout.PaddingValues(14.dp)) { Row(verticalAlignment = Alignment.CenterVertically) {
                 PixelSprite(Sprites.sunRise, Modifier.size(36.dp))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -341,7 +392,7 @@ private fun SleepCard() {
                 if (slept != null) {
                     Text(Messages.duration(slept), style = Type.num.copy(color = if (slept >= 7 * 60) Ink.good else if (slept >= 6 * 60) Ink.amber else Ink.bad))
                 }
-            }
+            } }
         }
     }
 }

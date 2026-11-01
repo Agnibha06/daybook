@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,28 +68,55 @@ fun InsightsScreen() {
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Sprites.badgeSweep, "Completion", sum.completion?.let { "$it%" } ?: "–", "of tasks due", Modifier.weight(1f), sum.completion?.let { effColor(it) })
-            Tile(Sprites.badgeDeep, "Efficiency", sum.avgEff?.let { "$it%" } ?: "–", "average per task", Modifier.weight(1f), sum.avgEff?.let { effColor(it) })
+        // Bento: big completion dial beside two stacked tiles, then the mirror image below.
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).appear(1), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PixelBox(Modifier.weight(1f).fillMaxHeight(), color = Ink.raised) {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Label("Completion")
+                    Spacer(Modifier.height(10.dp))
+                    PixelDial((sum.completion ?: 0) / 100f, 112.dp, sum.completion?.let { effColor(it) } ?: Ink.line, blocks = 28) {
+                        CountText(sum.completion?.let { "$it%" } ?: "–", Type.h1.copy(color = sum.completion?.let { effColor(it) } ?: Ink.dim))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("of tasks due", style = Type.small)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Tile(Sprites.badgeDeep, "Efficiency", sum.avgEff?.let { "$it%" } ?: "–", "average per task", Modifier.fillMaxWidth(), sum.avgEff?.let { effColor(it) })
+                Tile(Sprites.catStudy, "Focus", if (sum.focusMin > 0) Messages.duration(sum.focusMin) else "–", "deep-work time", Modifier.fillMaxWidth(), null)
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Sprites.catStudy, "Focus", if (sum.focusMin > 0) Messages.duration(sum.focusMin) else "–", "study, class, lab, project", Modifier.weight(1f), null)
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).appear(2), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Tile(Sprites.bed, "Sleep", sum.avgSleep?.let { Messages.duration(it) } ?: "–", "per night", Modifier.fillMaxWidth(),
+                    sum.avgSleep?.let { if (it >= 7 * 60) Ink.good else if (it >= 6 * 60) Ink.amber else Ink.bad })
+                Tile(Sprites.alarm, "Snoozes", "${sum.snoozes}", "this week", Modifier.fillMaxWidth(), if (sum.snoozes == 0) Ink.good else null)
+            }
+            PixelBox(Modifier.weight(1f).fillMaxHeight(), color = Ink.raised) {
+                Column(Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PixelSprite(Sprites.badgeLock, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Label("Locked in")
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    CountText("${sum.daysLocked}/7", Type.h1.copy(color = if (sum.daysLocked >= 6) Ink.good else Ink.text))
+                    Text("nights before 3 AM", style = Type.small)
+                    Spacer(Modifier.height(12.dp))
+                    // The last seven nights as seven blocks, oldest first.
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        days.takeLast(7).forEach { d -> Block(if (d.locked) Ink.amber else Ink.line, 14.dp) }
+                    }
+                }
+            }
+        }
+        Row(Modifier.appear(3), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Tile(Sprites.badgeGhost, "Per unlock", sum.minPerUnlock?.let { "${it}m" } ?: "–", "focus between unlocks", Modifier.weight(1f), null)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Sprites.badgeLock, "Locked in", "${sum.daysLocked}/7", "nights before 3 AM", Modifier.weight(1f), if (sum.daysLocked >= 6) Ink.good else null)
-            Tile(Sprites.badgeSteady, "Moves", "${sum.movesUsed}", "used of ${7 * com.agnibha.tracker.MAX_MOVES}", Modifier.weight(1f), null)
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Sprites.bed, "Sleep", sum.avgSleep?.let { Messages.duration(it) } ?: "–", "average per night", Modifier.weight(1f),
-                sum.avgSleep?.let { if (it >= 7 * 60) Ink.good else if (it >= 6 * 60) Ink.amber else Ink.bad })
-            Tile(Sprites.alarm, "Snoozes", "${sum.snoozes}", "this week", Modifier.weight(1f), if (sum.snoozes == 0) Ink.good else null)
+            Tile(Sprites.badgeSteady, "Moves", "${sum.movesUsed}", "of ${7 * com.agnibha.tracker.MAX_MOVES} used", Modifier.weight(1f), null)
         }
 
         // Sleep: 14 nights as columns of half-hour blocks, with a marker at the planned amount.
-        Panel {
-            Text("Sleep", style = Type.h2)
+        Panel(Modifier.appear(4), tab = "Sleep", tabColor = Ink.sky, sprite = Sprites.zzz) {
             Text("Hours slept each night. Amber block = what you planned.", style = Type.small)
             Spacer(Modifier.height(14.dp))
             Canvas(Modifier.fillMaxWidth().height(120.dp)) {
@@ -133,8 +162,7 @@ fun InsightsScreen() {
         }
 
         // 14-day completion columns
-        Panel {
-            Text("Two weeks", style = Type.h2)
+        Panel(Modifier.appear(5), tab = "Two weeks", sprite = Sprites.tabInsights) {
             Text("Column = share of tasks finished, colour = efficiency", style = Type.small)
             Spacer(Modifier.height(14.dp))
             Canvas(Modifier.fillMaxWidth().height(116.dp)) {
@@ -180,8 +208,7 @@ fun InsightsScreen() {
         }
 
         // Efficiency by hour
-        Panel {
-            Text("When you focus best", style = Type.h2)
+        Panel(Modifier.appear(6), tab = "Best hours", tabColor = Ink.good, sprite = Sprites.tabToday) {
             Text("Average efficiency by start hour, last 4 weeks", style = Type.small)
             Spacer(Modifier.height(14.dp))
             Canvas(Modifier.fillMaxWidth().height(36.dp)) {
@@ -211,8 +238,7 @@ fun InsightsScreen() {
         }
 
         if (cats.isNotEmpty()) {
-            Panel {
-                Text("Where the week went", style = Type.h2)
+            Panel(Modifier.appear(7), tab = "Where the week went", tabColor = Ink.sky, sprite = Sprites.catStudy) {
                 Text("Planned (faint) against finished, by type", style = Type.small)
                 Spacer(Modifier.height(12.dp))
                 val max = cats.maxOf { it.plannedMin }.coerceAtLeast(1)
@@ -240,8 +266,7 @@ fun InsightsScreen() {
         }
 
         if (apps.isNotEmpty()) {
-            Panel {
-                Text("What pulled you away", style = Type.h2)
+            Panel(Modifier.appear(8), tab = "What pulled you away", tabColor = Ink.bad, sprite = Sprites.badgeGhost) {
                 Text("Minutes on distracting apps during tasks this week", style = Type.small)
                 Spacer(Modifier.height(12.dp))
                 val max = apps.maxOf { it.second }.coerceAtLeast(1)
@@ -260,17 +285,11 @@ fun InsightsScreen() {
 
         if (facts.isNotEmpty()) {
             Label("Patterns")
-            facts.forEach { f ->
-                Panel {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Block(Ink.amber, 8.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(f.head, style = Type.title)
-                            Spacer(Modifier.height(4.dp))
-                            Text(f.body, style = Type.small)
-                        }
-                    }
+            facts.forEachIndexed { i, f ->
+                SpeechBubble("", Modifier.appear(9 + i), fromRight = i % 2 == 1, speaker = Sprites.climberA) {
+                    Text(f.head, style = Type.title)
+                    Spacer(Modifier.height(4.dp))
+                    Text(f.body, style = Type.small)
                 }
             }
         } else if (hasData) {
@@ -286,14 +305,16 @@ fun InsightsScreen() {
 
 @Composable
 private fun Tile(sprite: Sprite, title: String, value: String, sub: String, modifier: Modifier, color: Color?) {
-    Column(modifier.background(Ink.surface, PxShape).padding(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            PixelSprite(sprite, Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Label(title)
+    PixelBox(modifier, padding = androidx.compose.foundation.layout.PaddingValues(14.dp)) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PixelSprite(sprite, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Label(title)
+            }
+            Spacer(Modifier.height(8.dp))
+            CountText(value, Type.h1.copy(color = color ?: Ink.text))
+            Text(sub, style = Type.small, maxLines = 1)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(value, style = Type.h1.copy(color = color ?: Ink.text))
-        Text(sub, style = Type.small, maxLines = 1)
     }
 }
