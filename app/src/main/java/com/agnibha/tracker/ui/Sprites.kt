@@ -58,6 +58,9 @@ object Sprites {
     val plus = Sprite("..www..", "..www..", "wwwwwww", "wwwwwww", "wwwwwww", "..www..", "..www..")
     val check = Sprite(".......l", "......ll", "l....ll.", "ll..ll..", ".llll...", "..ll....")
     val cross = Sprite("oo...oo", "ooo.ooo", ".ooooo.", "..ooo..", ".ooooo.", "ooo.ooo", "oo...oo")
+    val mealBreakfast = Sprite("...cccccc...", "..chhhhhhc..", ".chhhhhhhhc.", ".chhwwwwhhc.", ".chwwwwwwhc.", ".cwwwyywwwc.", ".cwwyyyywwc.", ".chwwyywwhc.", ".chhwwwwwhc.", ".chhhhhhhhc.", ".cccccccccc.", "............")
+    val mealLunch = Sprite("............", "...gggggg...", "..gwwwwwwg..", ".gwwwwaawwg.", "gwwwwaaaawwg", "gwleewaawwwg", "gwleeewwwhwg", "gwwlewwwhhwg", ".gwwwwwwwwg.", "..gwwwwwwg..", "...gggggg...", "............")
+    val mealDinner = Sprite("...g..g..g..", "....g..g..g.", "...g..g..g..", "............", "oooooooooooo", "boaaoaaooaob", "bbooooooaobb", ".bbbbbbbbbb.", "..bbwbbbbb..", "...bbbbbb...", "....nnnn....", "............")
     val logo = Sprite("....................", ".nnnnnnnnccwwwwwwww.", ".nnnnnnynccwwwwwwww.", ".nnnwwnnnccwwwyywww.", ".nnwwnnnnccwwyyyyww.", ".nnwwnnynccwyyaayyw.", ".nnwwnnnnccwyyaayyw.", ".nnnwwnnnccwwyyyyww.", ".nynnnnnnccwwwyywww.", ".nnnnnnnnccwwwwwwww.", ".nnnnnnnnccwgggggww.", ".nnnnnnnnccwwwwwwww.", ".nnnnnnnnccwggggwww.", "aaaaaaaaaccaaaaaaaaa", ".oooooooooooooooooo.", "....................")
     val launcher = Sprite("................", ".....goo...yyy..", ".....gooo.yyyyy.", ".....g....yyyyy.", ".....g.....yyy..", ".....w..........", "....www.........", "...wwsss....d...", "..wssssss..ddd..", "..sssssssddddd..", ".sssssssssddddd.", ".ssssssssssdddd.", "ssssssssssssdddd", "ssssssssssssssdd", "eeeeeeeeeeeeeeee", "................")
 }

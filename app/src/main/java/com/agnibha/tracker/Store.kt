@@ -318,6 +318,28 @@ object Store {
         return MAX_SNOOZES - p.snoozes - 1
     }
 
+    // ---------- Meals ----------
+
+    /** Log a meal as eaten (true), skipped (false), or clear the answer (null). */
+    fun logMeal(ctx: Context, dateKey: String, meal: Meal, ate: Boolean?) {
+        putPlan(dateKey) { p ->
+            p.copy(
+                meals = if (ate == null) p.meals - meal.name else p.meals + (meal.name to ate),
+                mealRemind = p.mealRemind - meal.name,
+            )
+        }
+        Alerts.cancel(ctx, Kind.MEAL, null, meal.name)
+        Alarms.scheduleMeals(ctx)
+    }
+
+    /** Ask about this meal again in 30 minutes. */
+    fun remindMealLater(ctx: Context, dateKey: String, meal: Meal) {
+        val at = System.currentTimeMillis() + 30 * 60_000L
+        putPlan(dateKey) { it.copy(mealRemind = it.mealRemind + (meal.name to at)) }
+        Alerts.cancel(ctx, Kind.MEAL, null, meal.name)
+        Alarms.scheduleMeals(ctx)
+    }
+
     // ---------- Lock-in and reflection ----------
 
     fun setReflection(dateKey: String, note: String, mood: Int) = putPlan(dateKey) { it.copy(note = note.trim(), mood = mood) }

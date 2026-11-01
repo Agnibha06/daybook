@@ -687,6 +687,51 @@ S["cross"] = [
 ]
 
 
+
+# ---------- Meals (12x12) ----------
+S["meal_breakfast"] = [  # toast with a fried egg
+    "...cccccc...",
+    "..chhhhhhc..",
+    ".chhhhhhhhc.",
+    ".chhwwwwhhc.",
+    ".chwwwwwwhc.",
+    ".cwwwyywwwc.",
+    ".cwwyyyywwc.",
+    ".chwwyywwhc.",
+    ".chhwwwwwhc.",
+    ".chhhhhhhhc.",
+    ".cccccccccc.",
+    "............",
+]
+S["meal_lunch"] = [  # thali: plate with rice, dal and sabzi
+    "............",
+    "...gggggg...",
+    "..gwwwwwwg..",
+    ".gwwwwaawwg.",
+    "gwwwwaaaawwg",
+    "gwleewaawwwg",
+    "gwleeewwwhwg",
+    "gwwlewwwhhwg",
+    ".gwwwwwwwwg.",
+    "..gwwwwwwg..",
+    "...gggggg...",
+    "............",
+]
+S["meal_dinner"] = [  # bowl of curry with steam
+    "...g..g..g..",
+    "....g..g..g.",
+    "...g..g..g..",
+    "............",
+    "oooooooooooo",
+    "boaaoaaooaob",
+    "bbooooooaobb",
+    ".bbbbbbbbbb.",
+    "..bbwbbbbb..",
+    "...bbbbbb...",
+    "....nnnn....",
+    "............",
+]
+
 # ---------- Logo (20x16): an open daybook, night page and day page ----------
 S["logo"] = [
     "....................",

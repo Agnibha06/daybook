@@ -49,6 +49,7 @@ import com.agnibha.tracker.ui.ResultView
 import com.agnibha.tracker.ui.Sprites
 import com.agnibha.tracker.ui.Type
 import com.agnibha.tracker.ui.sprite
+import com.agnibha.tracker.ui.mealSprite
 import com.agnibha.tracker.ui.tint
 import kotlinx.coroutines.delay
 
@@ -91,6 +92,7 @@ class AlarmActivity : ComponentActivity() {
                         k == Kind.TEST -> "test"
                         k == Kind.WAKE -> "wake"
                         k == Kind.BEDTIME -> "bed"
+                        k == Kind.MEAL -> "meal"
                         else -> "none"
                     }
                     AnimatedContent(screen, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(150)) }, label = "alarm") { sc ->
@@ -109,6 +111,7 @@ class AlarmActivity : ComponentActivity() {
                             "test" -> TestView()
                             "wake" -> WakeView()
                             "bed" -> BedView()
+                            "meal" -> MealView()
                             "morning" -> MorningView(morning ?: -1)
                             else -> LaunchedEffect(Unit) { silence(); finish() }
                         }
@@ -243,7 +246,7 @@ class AlarmActivity : ComponentActivity() {
         Column {
             Text(text, style = Type.h1)
             Spacer(Modifier.height(10.dp))
-            date?.let { MovesLine(it) }
+            if (kind == Kind.TASK_SOON || kind == Kind.TASK_END) date?.let { MovesLine(it) }
         }
         PrimaryButton("OK") { finish() }
     }
@@ -384,6 +387,41 @@ class AlarmActivity : ComponentActivity() {
             }
             Spacer(Modifier.height(10.dp))
             GhostButton("Not yet", Modifier.fillMaxWidth()) { close() }
+        }
+    }
+
+    @Composable
+    private fun MealView() {
+        val meal = runCatching { Meal.valueOf(taskId ?: "") }.getOrNull() ?: Meal.LUNCH
+        val d = date ?: Clock.todayKey()
+        Shell("${meal.label} check") {
+            Column {
+                PixelSprite(mealSprite(meal), Modifier.size(96.dp))
+                Spacer(Modifier.height(16.dp))
+                Text("Had ${meal.label.lowercase()}?", style = Type.hero)
+                Spacer(Modifier.height(12.dp))
+                Text(Messages.mealBody(meal), style = Type.body.copy(color = Ink.text))
+            }
+            Column {
+                PrimaryButton("Yes, I ate", color = Ink.good, shadow = Ink.good.copy(alpha = 0.45f)) {
+                    silence()
+                    Store.logMeal(this@AlarmActivity, d, meal, true)
+                    note = Messages.mealLogged(meal, true)
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    GhostButton("Skipped it", Modifier.weight(1f), color = Ink.bad) {
+                        silence()
+                        Store.logMeal(this@AlarmActivity, d, meal, false)
+                        note = Messages.mealLogged(meal, false)
+                    }
+                    GhostButton("Ask in 30 min", Modifier.weight(1f)) {
+                        silence()
+                        Store.remindMealLater(this@AlarmActivity, d, meal)
+                        finish()
+                    }
+                }
+            }
         }
     }
 }

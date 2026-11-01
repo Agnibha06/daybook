@@ -17,6 +17,13 @@ enum class Category(val label: String, val focusWeight: Float, val color: Long) 
     val isFocus: Boolean get() = focusWeight >= 1f
 }
 
+/** The three meal check-ins and the hour each one is asked about. */
+enum class Meal(val label: String, val hour: Int) {
+    BREAKFAST("Breakfast", 10),
+    LUNCH("Lunch", 15),
+    DINNER("Dinner", 22),
+}
+
 enum class Outcome(val label: String) { DONE("Done"), PARTIAL("Partly"), MISSED("Missed") }
 
 data class TaskResult(
@@ -72,6 +79,10 @@ data class DayPlan(
     val wakeAt: Long? = null,
     val snoozes: Int = 0,
     val snoozeUntil: Long? = null,
+    /** Meal name -> true if eaten, false if skipped. Missing = not answered. */
+    val meals: Map<String, Boolean> = emptyMap(),
+    /** Meal name -> when a "remind me later" should ask again. */
+    val mealRemind: Map<String, Long> = emptyMap(),
 ) {
     val isLocked: Boolean get() = lockedAt != null
     val hasSleepPlan: Boolean get() = sleepMin != null && wakeMin != null
@@ -204,6 +215,8 @@ object Codec {
         put("wakeAt", p.wakeAt ?: JSONObject.NULL)
         put("snoozes", p.snoozes)
         put("snoozeUntil", p.snoozeUntil ?: JSONObject.NULL)
+        put("meals", JSONObject().apply { p.meals.forEach { (k, v) -> put(k, v) } })
+        put("mealRemind", JSONObject().apply { p.mealRemind.forEach { (k, v) -> put(k, v) } })
         put("tasks", JSONArray().apply { p.tasks.forEach { put(task(it)) } })
     }
 
@@ -223,6 +236,8 @@ object Codec {
             wakeAt = if (o.isNull("wakeAt") || !o.has("wakeAt")) null else o.optLong("wakeAt"),
             snoozes = o.optInt("snoozes", 0),
             snoozeUntil = if (o.isNull("snoozeUntil") || !o.has("snoozeUntil")) null else o.optLong("snoozeUntil"),
+            meals = o.optJSONObject("meals")?.let { m -> m.keys().asSequence().associateWith { m.getBoolean(it) } } ?: emptyMap(),
+            mealRemind = o.optJSONObject("mealRemind")?.let { m -> m.keys().asSequence().associateWith { m.getLong(it) } } ?: emptyMap(),
         )
     }
 

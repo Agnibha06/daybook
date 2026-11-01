@@ -114,6 +114,10 @@ fun InsightsScreen() {
             Tile(Sprites.badgeGhost, "Per unlock", sum.minPerUnlock?.let { "${it}m" } ?: "–", "focus between unlocks", Modifier.weight(1f), null)
             Tile(Sprites.badgeSteady, "Moves", "${sum.movesUsed}", "of ${7 * com.agnibha.tracker.MAX_MOVES} used", Modifier.weight(1f), null)
         }
+        Row(Modifier.appear(3), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Tile(Sprites.mealLunch, "Meals", "${sum.mealsEaten}/21", if (sum.mealsAnswered < 21) "eaten · ${21 - sum.mealsAnswered} not logged" else "eaten this week", Modifier.weight(1f),
+                if (sum.mealsEaten >= 18) Ink.good else if (sum.mealsEaten >= 12) Ink.amber else if (sum.mealsAnswered > 0) Ink.bad else null)
+        }
 
         // Sleep: 14 nights as columns of half-hour blocks, with a marker at the planned amount.
         Panel(Modifier.appear(4), tab = "Sleep", tabColor = Ink.sky, sprite = Sprites.zzz) {

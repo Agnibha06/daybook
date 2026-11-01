@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.geometry.Offset
@@ -96,6 +97,7 @@ fun TodayScreen() {
         }
 
         Box(Modifier.appear(3)) { SleepCard() }
+        Box(Modifier.appear(3)) { MealsRow(key) }
 
         // Tonight's check-in
         if (Store.streakAtRisk(s)) {
@@ -393,6 +395,54 @@ private fun SleepCard() {
                     Text(Messages.duration(slept), style = Type.num.copy(color = if (slept >= 7 * 60) Ink.good else if (slept >= 6 * 60) Ink.amber else Ink.bad))
                 }
             } }
+        }
+    }
+}
+
+/** Breakfast, lunch and dinner as three tiles. Tap to cycle: not answered, ate, skipped. */
+@Composable
+private fun MealsRow(key: String) {
+    val ctx = LocalContext.current
+    val p = Store.state.plan(key)
+    val nowMin = Clock.minutesNow()
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        com.agnibha.tracker.Meal.entries.forEach { m ->
+            val ate = p.meals[m.name]
+            val due = nowMin >= m.hour * 60
+            val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "meal").animateFloat(
+                0.4f, 1f,
+                androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(700), androidx.compose.animation.core.RepeatMode.Reverse),
+                label = "pulse",
+            )
+            PixelBox(
+                Modifier.weight(1f),
+                color = when (ate) { true -> Ink.good.copy(alpha = 0.14f); false -> Ink.bad.copy(alpha = 0.12f); null -> Ink.surface },
+                border = if (ate == null && due) Ink.amber.copy(alpha = pulse) else null,
+                depth = if (ate != null) 2.dp else 4.dp,
+                padding = androidx.compose.foundation.layout.PaddingValues(vertical = 10.dp, horizontal = 6.dp),
+                onClick = {
+                    val next = when (ate) { null -> true; true -> false; false -> null }
+                    com.agnibha.tracker.Store.logMeal(ctx, key, m, next)
+                    Toaster.show(if (next == null) "${m.label} cleared." else Messages.mealLogged(m, next))
+                },
+            ) {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(contentAlignment = Alignment.BottomEnd) {
+                        PixelSprite(mealSprite(m), Modifier.size(34.dp), muted = ate == false)
+                        when (ate) {
+                            true -> PixelSprite(Sprites.check, Modifier.size(14.dp))
+                            false -> PixelSprite(Sprites.cross, Modifier.size(12.dp))
+                            null -> {}
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(m.label, style = Type.small.copy(color = Ink.text))
+                    Text(
+                        when (ate) { true -> "ate"; false -> "skipped"; null -> if (due) "had it?" else Messages.time(m.hour * 60) },
+                        style = Type.label.copy(color = when (ate) { true -> Ink.good; false -> Ink.bad; null -> if (due) Ink.amber else Ink.faint }),
+                    )
+                }
+            }
         }
     }
 }

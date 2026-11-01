@@ -61,6 +61,12 @@ fun Category.sprite(): Sprite = when (this) {
     Category.BREAK -> Sprites.catBreak
 }
 
+fun mealSprite(m: com.agnibha.tracker.Meal): Sprite = when (m) {
+    com.agnibha.tracker.Meal.BREAKFAST -> Sprites.mealBreakfast
+    com.agnibha.tracker.Meal.LUNCH -> Sprites.mealLunch
+    com.agnibha.tracker.Meal.DINNER -> Sprites.mealDinner
+}
+
 fun effColor(e: Int): Color = when {
     e >= 80 -> Ink.good
     e >= 55 -> Ink.amber

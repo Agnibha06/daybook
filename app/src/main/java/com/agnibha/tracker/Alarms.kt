@@ -18,7 +18,7 @@ import androidx.core.app.NotificationCompat
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-enum class Kind { PLAN_REMIND, PLAN_LAST_CALL, PLAN_DEADLINE, TASK_SOON, TASK_END, TEST, WAKE, BEDTIME }
+enum class Kind { PLAN_REMIND, PLAN_LAST_CALL, PLAN_DEADLINE, TASK_SOON, TASK_END, TEST, WAKE, BEDTIME, MEAL }
 
 object Alarms {
     const val EXTRA_KIND = "kind"
@@ -33,6 +33,7 @@ object Alarms {
         Kind.TEST -> 104
         Kind.WAKE -> 105
         Kind.BEDTIME -> 106
+        Kind.MEAL -> 110 + (runCatching { Meal.valueOf(taskId ?: "").ordinal }.getOrDefault(0))
         else -> "$kind|$date|$taskId".hashCode()
     }
 
@@ -82,6 +83,28 @@ object Alarms {
         scheduleDaily(ctx)
         scheduleTasks(ctx, Clock.todayKey())
         scheduleSleep(ctx)
+        scheduleMeals(ctx)
+    }
+
+    /**
+     * Each meal is asked about once a day at its hour, unless it was already answered.
+     * A "remind me later" moves today's question to its remind time.
+     */
+    fun scheduleMeals(ctx: Context) {
+        val now = System.currentTimeMillis()
+        val today = Clock.todayKey()
+        val tomorrow = Clock.key(Clock.today().plusDays(1))
+        val p = Store.state.plan(today)
+        Meal.entries.forEach { m ->
+            val remind = p.mealRemind[m.name]?.takeIf { it > now && m.name !in p.meals }
+            val todayAt = Clock.epoch(today, m.hour * 60).takeIf { it > now && m.name !in p.meals }
+            val (key, at) = when {
+                remind != null -> today to remind
+                todayAt != null -> today to todayAt
+                else -> tomorrow to Clock.epoch(tomorrow, m.hour * 60)
+            }
+            pending(ctx, Kind.MEAL, key, m.name)?.let { set(ctx, at, it) }
+        }
     }
 
     /**
@@ -301,6 +324,14 @@ class AlarmReceiver : BroadcastReceiver() {
                     Alerts.show(ctx, kind, d, null, "Time to sleep", Messages.bedtimeBody(Store.state.plan(d)), insistent = false)
                 }
                 Alarms.scheduleSleep(ctx)
+            }
+            Kind.MEAL -> {
+                val meal = runCatching { Meal.valueOf(taskId ?: "") }.getOrNull()
+                val d = date ?: today
+                if (meal != null && meal.name !in Store.state.plan(d).meals) {
+                    Alerts.show(ctx, kind, d, meal.name, "Had ${meal.label.lowercase()}?", Messages.mealBody(meal), insistent = false)
+                }
+                Alarms.scheduleMeals(ctx)
             }
             Kind.TASK_SOON -> {
                 val t = if (date != null && taskId != null) Store.findTask(date, taskId) else null

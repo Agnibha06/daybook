@@ -137,4 +137,20 @@ object Messages {
         1 -> "One snooze."
         else -> "$snoozes snoozes."
     }
+
+    fun mealBody(m: Meal): String = when (m) {
+        Meal.BREAKFAST -> "It's 10 AM. Did you eat breakfast? Studying on an empty stomach costs focus."
+        Meal.LUNCH -> "It's 3 PM. Did you have lunch?"
+        Meal.DINNER -> "It's 10 PM. Did you have dinner before tonight's planning?"
+    }
+
+    fun mealLogged(m: Meal, ate: Boolean): String = if (ate) when (m) {
+        Meal.BREAKFAST -> "Breakfast logged. Good start."
+        Meal.LUNCH -> "Lunch logged."
+        Meal.DINNER -> "Dinner logged. Now plan tomorrow."
+    } else when (m) {
+        Meal.BREAKFAST -> "Skipped breakfast. Grab something small before your next block."
+        Meal.LUNCH -> "Skipped lunch. Eat something before evening work."
+        Meal.DINNER -> "Skipped dinner. Have a snack before you sleep."
+    }
 }

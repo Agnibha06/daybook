@@ -17,6 +17,7 @@ A personal Android discipline tracker. Plan the day between 12:00 and 3:00 AM, g
 - **Badges.** Twelve pixel badges for streaks, zero-unlock blocks, deep-work days and more.
 - **Backup.** Save and restore everything as a JSON file from Settings.
 - **Sleep and wake.** Every plan starts with bedtime and wake-up. A bedtime reminder offers a Sleep button; the app counts hours until you press I'm awake on the wake alarm, which allows three 10-minute snoozes.
+- **Meal check-ins.** The app asks about breakfast at 10 AM, lunch at 3 PM and dinner at 10 PM: ate, skipped, or ask again in 30 minutes. Meals show on Today, in Stats and in the Log.
 
 ## Run it on your phone
 

@@ -22,6 +22,8 @@ data class Summary(
     val daysLocked: Int,
     val avgSleep: Int?,
     val snoozes: Int,
+    val mealsEaten: Int,
+    val mealsAnswered: Int,
 )
 
 data class Fact(val head: String, val body: String)
@@ -64,6 +66,8 @@ object Insights {
             avgSleep = (0 until days).mapNotNull { s.plan(Clock.key(today.minusDays(it.toLong()))).sleptMin }
                 .takeIf { it.isNotEmpty() }?.average()?.roundToInt(),
             snoozes = (0 until days).sumOf { s.plan(Clock.key(today.minusDays(it.toLong()))).snoozes },
+            mealsEaten = (0 until days).sumOf { s.plan(Clock.key(today.minusDays(it.toLong()))).meals.values.count { it } },
+            mealsAnswered = (0 until days).sumOf { s.plan(Clock.key(today.minusDays(it.toLong()))).meals.size },
         )
     }
 
@@ -262,7 +266,26 @@ object Insights {
             )
         }
 
-        // 10. Missed tasks that were never checked out.
+        // 10. Breakfast against the day's efficiency.
+        val withB = s.plans.values.filter { it.meals[Meal.BREAKFAST.name] == true && it.tasks.any { t -> t.result != null } }
+        val withoutB = s.plans.values.filter { it.meals[Meal.BREAKFAST.name] == false && it.tasks.any { t -> t.result != null } }
+        if (withB.size >= 2 && withoutB.size >= 2) {
+            fun avg(ps: List<DayPlan>) = ps.flatMap { p -> p.tasks.mapNotNull { it.result?.efficiency } }.average().roundToInt()
+            val a = avg(withB)
+            val b = avg(withoutB)
+            if (kotlin.math.abs(a - b) >= 6) out += Fact(
+                if (a > b) "Breakfast pays off" else "Skipping breakfast hasn't slowed you",
+                "Days with breakfast: $a% average efficiency. Days without: $b%.",
+            )
+        }
+        val skipped = s.plans.values.sumOf { p -> p.meals.values.count { !it } }
+        val answered = s.plans.values.sumOf { it.meals.size }
+        if (answered >= 9 && skipped * 4 >= answered) out += Fact(
+            "You skip a lot of meals",
+            "$skipped of the last $answered meals you logged were skipped. Low fuel shows up as low focus.",
+        )
+
+        // 11. Missed tasks that were never checked out.
         val ghosts = month.count { it.date.isBefore(Clock.today()) && it.task.result == null && it.plan.isLocked }
         if (ghosts >= 3) out += Fact(
             "$ghosts tasks never got a check-out",

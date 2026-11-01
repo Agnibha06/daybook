@@ -287,6 +287,18 @@ fun DayDetail(dateKey: String, onClose: () -> Unit) {
                 }
             }
         }
+        if (p.meals.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                com.agnibha.tracker.Meal.entries.forEach { m ->
+                    val ate = p.meals[m.name]
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PixelSprite(mealSprite(m), Modifier.size(24.dp), muted = ate != true)
+                        Spacer(Modifier.width(4.dp))
+                        Text(when (ate) { true -> "ate"; false -> "skipped"; null -> "–" }, style = Type.small.copy(color = when (ate) { true -> Ink.good; false -> Ink.bad; null -> Ink.faint }))
+                    }
+                }
+            }
+        }
         if (p.mood in 1..5 || p.note.isNotBlank()) {
             Panel {
                 Row(verticalAlignment = Alignment.CenterVertically) {
