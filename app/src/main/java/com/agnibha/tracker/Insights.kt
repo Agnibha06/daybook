@@ -18,6 +18,8 @@ data class Summary(
     val focusMin: Int,
     val minPerUnlock: Int?,
     val distractMin: Int,
+    val movesUsed: Int,
+    val daysLocked: Int,
 )
 
 data class Fact(val head: String, val body: String)
@@ -55,6 +57,8 @@ object Insights {
             focusMin = focusMin,
             minPerUnlock = if (focusUnlocks == 0 || measuredFocusMin == 0) null else measuredFocusMin / focusUnlocks,
             distractMin = checked.sumOf { it.second.distractMin ?: 0 },
+            movesUsed = (0 until days).sumOf { s.plan(Clock.key(today.minusDays(it.toLong()))).moves },
+            daysLocked = (0 until days).count { s.plan(Clock.key(today.minusDays(it.toLong()))).isLocked },
         )
     }
 
@@ -194,7 +198,34 @@ object Insights {
             )
         }
 
-        // 7. Missed tasks that were never checked out.
+        // 7. Do moved tasks still get done?
+        val moved = month.filter { it.task.result != null && (it.task.moved > 0 || it.task.carriedFrom != null) }
+        val kept = month.filter { it.task.result != null && it.task.moved == 0 && it.task.carriedFrom == null }
+        if (moved.size >= 3 && kept.size >= 5) {
+            fun pct(xs: List<Item>) = (xs.sumOf { credit(it.task.result?.outcome).toDouble() } / xs.size * 100).roundToInt()
+            val a = pct(moved)
+            val b = pct(kept)
+            out += Fact(
+                if (a + 10 < b) "Moved tasks tend to die" else "Moving works for you",
+                "Tasks you moved got finished $a% of the time, against $b% for tasks you left alone.",
+            )
+        }
+
+        // 8. Mood against the day's efficiency.
+        val rated = s.plans.values.filter { it.mood > 0 && it.tasks.any { t -> t.result != null } }
+        val good = rated.filter { it.mood >= 4 }
+        val low = rated.filter { it.mood <= 2 }
+        if (good.size >= 2 && low.size >= 2) {
+            fun avg(ps: List<DayPlan>) = ps.flatMap { p -> p.tasks.mapNotNull { it.result?.efficiency } }.average().roundToInt()
+            val a = avg(good)
+            val b = avg(low)
+            if (kotlin.math.abs(a - b) >= 8) out += Fact(
+                if (a > b) "Good days and focus go together" else "You focus better on rough days",
+                "Days you rated 4–5 averaged $a% efficiency. Days rated 1–2 averaged $b%.",
+            )
+        }
+
+        // 9. Missed tasks that were never checked out.
         val ghosts = month.count { it.date.isBefore(Clock.today()) && it.task.result == null && it.plan.isLocked }
         if (ghosts >= 3) out += Fact(
             "$ghosts tasks never got a check-out",

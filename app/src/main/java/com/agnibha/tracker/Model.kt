@@ -42,6 +42,12 @@ data class Task(
     val startMin: Int,
     val endMin: Int,
     val result: TaskResult? = null,
+    /** How many times this task was moved after its day went live. */
+    val moved: Int = 0,
+    /** The start time it was planned at, before any moves. */
+    val plannedStart: Int? = null,
+    /** Set when the task arrived here by being pushed from an earlier day. */
+    val carriedFrom: String? = null,
 ) {
     val durationMin: Int get() = endMin - startMin
 }
@@ -52,10 +58,21 @@ data class DayPlan(
     /** Set when the plan was locked inside the 12:00–3:00 AM window. This is the daily check-in. */
     val lockedAt: Long? = null,
     val lockPoints: Int = 0,
+    /** Moves used today (postpone or retime). Capped at [MAX_MOVES]. */
+    val moves: Int = 0,
+    /** One line written about this day, and a 1–5 mood. 0 = not rated. */
+    val note: String = "",
+    val mood: Int = 0,
 ) {
     val isLocked: Boolean get() = lockedAt != null
     val sortedTasks: List<Task> get() = tasks.sortedBy { it.startMin }
+    val movesLeft: Int get() = (MAX_MOVES - moves).coerceAtLeast(0)
 }
+
+const val MAX_MOVES = 2
+
+/** A task template for a weekday routine. */
+data class RoutineItem(val title: String, val category: Category, val startMin: Int, val endMin: Int)
 
 data class AppState(
     val username: String = "",
@@ -67,6 +84,10 @@ data class AppState(
     /** Streak length for which the weekly milestone pop-up was last shown. */
     val lastMilestoneShown: Int = 0,
     val setupDone: Boolean = false,
+    /** ISO day of week (1 = Monday .. 7 = Sunday) -> routine. */
+    val routines: Map<Int, List<RoutineItem>> = emptyMap(),
+    /** Badge ids already announced, so each unlock pops up once. */
+    val badgesSeen: Set<String> = emptySet(),
 ) {
     val totalPoints: Int
         get() = plans.values.sumOf { p -> p.lockPoints + p.tasks.sumOf { it.result?.points ?: 0 } }
@@ -95,17 +116,26 @@ val DEFAULT_DISTRACTING: Set<String> = setOf(
 // ---------- JSON ----------
 
 object Codec {
+    const val VERSION = 2
+
     fun encode(s: AppState): String {
         val o = JSONObject()
+        o.put("version", VERSION)
         o.put("username", s.username)
         o.put("bestStreak", s.bestStreak)
         o.put("lastFlashDate", s.lastFlashDate ?: JSONObject.NULL)
         o.put("lastMilestoneShown", s.lastMilestoneShown)
         o.put("setupDone", s.setupDone)
         o.put("distracting", JSONArray(s.distracting.toList()))
+        o.put("badgesSeen", JSONArray(s.badgesSeen.toList()))
         val plans = JSONObject()
         s.plans.forEach { (k, p) -> plans.put(k, plan(p)) }
         o.put("plans", plans)
+        val routines = JSONObject()
+        s.routines.forEach { (day, items) ->
+            routines.put(day.toString(), JSONArray().apply { items.forEach { put(routine(it)) } })
+        }
+        o.put("routines", routines)
         return o.toString()
     }
 
@@ -114,22 +144,34 @@ object Codec {
         val plans = mutableMapOf<String, DayPlan>()
         val po = o.optJSONObject("plans") ?: JSONObject()
         po.keys().forEach { k -> plans[k] = plan(po.getJSONObject(k)) }
-        val dist = o.optJSONArray("distracting")
+        val routines = mutableMapOf<Int, List<RoutineItem>>()
+        val ro = o.optJSONObject("routines") ?: JSONObject()
+        ro.keys().forEach { k ->
+            val arr = ro.getJSONArray(k)
+            k.toIntOrNull()?.let { day -> routines[day] = (0 until arr.length()).map { routine(arr.getJSONObject(it)) } }
+        }
         return AppState(
             username = o.optString("username", ""),
             plans = plans,
             bestStreak = o.optInt("bestStreak", 0),
-            distracting = if (dist == null) DEFAULT_DISTRACTING else (0 until dist.length()).map { dist.getString(it) }.toSet(),
+            distracting = strings(o.optJSONArray("distracting"))?.toSet() ?: DEFAULT_DISTRACTING,
             lastFlashDate = if (o.isNull("lastFlashDate")) null else o.optString("lastFlashDate"),
             lastMilestoneShown = o.optInt("lastMilestoneShown", 0),
             setupDone = o.optBoolean("setupDone", false),
+            routines = routines,
+            badgesSeen = strings(o.optJSONArray("badgesSeen"))?.toSet() ?: emptySet(),
         )
     }
+
+    private fun strings(a: JSONArray?): List<String>? = a?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }
 
     private fun plan(p: DayPlan): JSONObject = JSONObject().apply {
         put("date", p.date)
         put("lockedAt", p.lockedAt ?: JSONObject.NULL)
         put("lockPoints", p.lockPoints)
+        put("moves", p.moves)
+        put("note", p.note)
+        put("mood", p.mood)
         put("tasks", JSONArray().apply { p.tasks.forEach { put(task(it)) } })
     }
 
@@ -140,8 +182,25 @@ object Codec {
             tasks = (0 until arr.length()).map { task(arr.getJSONObject(it)) },
             lockedAt = if (o.isNull("lockedAt")) null else o.optLong("lockedAt"),
             lockPoints = o.optInt("lockPoints", 0),
+            moves = o.optInt("moves", 0),
+            note = o.optString("note", ""),
+            mood = o.optInt("mood", 0),
         )
     }
+
+    private fun routine(r: RoutineItem): JSONObject = JSONObject().apply {
+        put("title", r.title)
+        put("category", r.category.name)
+        put("startMin", r.startMin)
+        put("endMin", r.endMin)
+    }
+
+    private fun routine(o: JSONObject): RoutineItem = RoutineItem(
+        title = o.getString("title"),
+        category = runCatching { Category.valueOf(o.getString("category")) }.getOrDefault(Category.STUDY),
+        startMin = o.getInt("startMin"),
+        endMin = o.getInt("endMin"),
+    )
 
     private fun task(t: Task): JSONObject = JSONObject().apply {
         put("id", t.id)
@@ -149,6 +208,9 @@ object Codec {
         put("category", t.category.name)
         put("startMin", t.startMin)
         put("endMin", t.endMin)
+        put("moved", t.moved)
+        put("plannedStart", t.plannedStart ?: JSONObject.NULL)
+        put("carriedFrom", t.carriedFrom ?: JSONObject.NULL)
         put("result", t.result?.let { result(it) } ?: JSONObject.NULL)
     }
 
@@ -159,6 +221,9 @@ object Codec {
         startMin = o.getInt("startMin"),
         endMin = o.getInt("endMin"),
         result = if (o.isNull("result")) null else result(o.getJSONObject("result")),
+        moved = o.optInt("moved", 0),
+        plannedStart = if (o.isNull("plannedStart")) null else o.optInt("plannedStart"),
+        carriedFrom = if (o.isNull("carriedFrom")) null else o.optString("carriedFrom"),
     )
 
     private fun result(r: TaskResult): JSONObject = JSONObject().apply {

@@ -89,4 +89,27 @@ object Messages {
         in 17..20 -> "Evening"
         else -> "Night"
     }
+
+    fun movesLeft(n: Int): String = when (n) {
+        0 -> "No moves left today"
+        1 -> "1 move left today"
+        else -> "$n moves left today"
+    }
+
+    fun moveOutcome(r: Store.MoveResult, what: String): String = when (r) {
+        Store.MoveResult.Ok -> what
+        Store.MoveResult.NoMovesLeft -> "No moves left today. Two per day keeps the plan honest."
+        Store.MoveResult.NotAllowed -> "That time doesn't fit in the day."
+    }
+
+    fun focusLine(cat: Category, unlocks: Int?): String = when {
+        unlocks == null -> "Phone face down. The flame burns until the block ends."
+        unlocks == 0 -> pick(listOf("No unlocks yet. Keep it that way.", "Clean so far.", "The phone hasn't won once."), cat.ordinal)
+        unlocks <= 2 -> "$unlocks unlock${if (unlocks == 1) "" else "s"} so far. Put it further away."
+        else -> "$unlocks unlocks already. Turn it face down and leave it."
+    }
+
+    fun badgeUnlocked(name: String): String = "Badge earned: $name"
+
+    val moodLabels = listOf("Rough", "Meh", "Okay", "Good", "Great")
 }

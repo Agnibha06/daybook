@@ -10,6 +10,12 @@ A personal Android discipline tracker. Plan the day between 12:00 and 3:00 AM, g
 - **Streak map.** The Climb tab is a winding trail. Your avatar moves up one step per day; every 7th step is a camp. A short animation plays on your first open each day, and a pop-up with falling confetti appears on camp days.
 - **Insights.** Completion rate, average efficiency, focus time, minutes between unlocks, a two-week chart, efficiency by hour of day, time per task type, the apps that cost you the most focus, and written patterns once there is enough data.
 - **Points and levels.** Points for locking in (more for longer streaks) and for each task you finish, with a bonus for efficiency.
+- **Two moves a day.** Once a day is live, you can push a task (+15m, +30m, +1h), pick a new time, extend a running task, or send it to tomorrow, twice per day. Live tasks can't be deleted.
+- **Focus mode.** A full-screen timer with a pixel candle that burns down, plus live unlock and distraction counts.
+- **Routines.** Save any day's plan as that weekday's routine and load it in one tap.
+- **Log.** A month calendar coloured by how much you finished, with each day's tasks, moves, mood and note.
+- **Badges.** Twelve pixel badges for streaks, zero-unlock blocks, deep-work days and more.
+- **Backup.** Save and restore everything as a JSON file from Settings.
 
 ## Run it on your phone
 
@@ -39,4 +45,6 @@ app/src/main/java/com/agnibha/tracker/
 
 All data stays on the phone.
 
-Fonts: IBM Plex Sans and IBM Plex Mono, under the SIL Open Font License.
+Pixel art lives in `sprites/sprites.py`; running it regenerates `ui/Sprites.kt` and the app icons.
+
+Fonts: IBM Plex Sans and Pixelify Sans, under the SIL Open Font License.

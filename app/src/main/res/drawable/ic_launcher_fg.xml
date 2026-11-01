@@ -1,23 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A path climbing through three camps: the streak map, reduced to a mark. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:pathData="M38,74 C52,72 58,64 54,56 C50,48 58,40 70,38"
-        android:strokeWidth="3.2"
-        android:strokeColor="#FF5A6270"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
-    <path
-        android:fillColor="#FF5A6270"
-        android:pathData="M38,74m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
-    <path
-        android:fillColor="#FFECE8E1"
-        android:pathData="M54,56m-5.5,0a5.5,5.5 0,1 1,11 0a5.5,5.5 0,1 1,-11 0" />
-    <path
-        android:fillColor="#FFF0A23B"
-        android:pathData="M70,38m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+    <path android:fillColor="#FF9AA0AA" android:pathData="M42,26h4v4h-4zM42,30h4v4h-4zM42,34h4v4h-4zM42,38h4v4h-4z" />
+    <path android:fillColor="#FFE0745A" android:pathData="M46,26h8v4h-8zM46,30h12v4h-12z" />
+    <path android:fillColor="#FFF7D354" android:pathData="M66,26h12v4h-12zM62,30h20v4h-20zM62,34h20v4h-20zM66,38h12v4h-12z" />
+    <path android:fillColor="#FFECE8E1" android:pathData="M42,42h4v4h-4zM38,46h12v4h-12zM34,50h8v4h-8zM30,54h4v4h-4z" />
+    <path android:fillColor="#FF5A6270" android:pathData="M42,50h12v4h-12zM34,54h24v4h-24zM30,58h28v4h-28zM26,62h36v4h-36zM26,66h40v4h-40zM22,70h48v4h-48zM22,74h56v4h-56z" />
+    <path android:fillColor="#FF343B49" android:pathData="M70,50h4v4h-4zM66,54h12v4h-12zM58,58h20v4h-20zM62,62h20v4h-20zM66,66h16v4h-16zM70,70h16v4h-16zM78,74h8v4h-8z" />
+    <path android:fillColor="#FF3F8A5E" android:pathData="M22,78h64v4h-64z" />
 </vector>

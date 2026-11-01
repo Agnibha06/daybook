@@ -1,13 +1,20 @@
 package com.agnibha.tracker.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,48 +24,41 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.agnibha.tracker.Badges
 import com.agnibha.tracker.Scoring
 import com.agnibha.tracker.Store
+import kotlinx.coroutines.delay
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.random.Random
 
-private val SPACING = 86.dp
-private val TOP_PAD = 70.dp
-private val BOTTOM_PAD = 90.dp
-
-private fun initials(name: String): String {
-    val parts = name.trim().split(" ").filter { it.isNotBlank() }
-    return when {
-        parts.isEmpty() -> "?"
-        parts.size == 1 -> parts[0].take(2).uppercase()
-        else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
-    }
-}
+private val SPACING = 92.dp
+private val TOP_PAD = 90.dp
+private val BOTTOM_PAD = 110.dp
 
 @Composable
 fun ClimbScreen() {
@@ -66,11 +66,12 @@ fun ClimbScreen() {
     val streak = Store.streak(s)
     val best = maxOf(s.bestStreak, streak)
     val nextCamp = (streak / 7 + 1) * 7
+    var view by remember { mutableIntStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
             Label("The climb")
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Text(if (streak == 1) "1 day up" else "$streak days up", style = Type.h1)
             Text(
                 if (streak == 0) "Lock in tonight's plan to take the first step."
@@ -84,173 +85,189 @@ fun ClimbScreen() {
                 Metric("${s.totalPoints}", "points", color = Ink.amber)
                 Metric("${Scoring.level(s.totalPoints)}", "level")
             }
+            Spacer(Modifier.height(14.dp))
+            Segmented(listOf("Trail", "Badges"), view) { view = it }
         }
-        ClimbMap(streak, best, s.username, Modifier.weight(1f))
+        AnimatedContent(
+            targetState = view,
+            transitionSpec = {
+                val dir = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(tween(240)) { w -> dir * w / 4 } + fadeIn(tween(200))) togetherWith
+                    (slideOutHorizontally(tween(200)) { w -> -dir * w / 4 } + fadeOut(tween(150)))
+            },
+            modifier = Modifier.weight(1f),
+            label = "climb",
+        ) { v ->
+            if (v == 0) TrailMap(streak, best, s.username) else BadgeGrid()
+        }
     }
 }
 
 @Composable
-private fun ClimbMap(streak: Int, best: Int, username: String, modifier: Modifier) {
+fun Segmented(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(Ink.surface, PxShapeSmall).padding(4.dp)) {
+        options.forEachIndexed { i, o ->
+            val on = i == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .background(if (on) Ink.raised else Ink.surface, PxShapeSmall)
+                    .clickable { onPick(i) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(o, style = Type.num.copy(fontSize = 15.sp, color = if (on) Ink.amber else Ink.dim))
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrailMap(streak: Int, best: Int, username: String) {
     val nodes = ((maxOf(streak, best) + 10) / 7 + 1) * 7
     val density = LocalDensity.current
     val scroll = rememberScrollState()
-    val pulse = rememberInfiniteTransition(label = "pulse")
-    val halo by pulse.animateFloat(
-        initialValue = 1f, targetValue = 1.35f,
-        animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "halo",
+    val measurer = rememberTextMeasurer(cacheSize = 160)
+    var frame by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { delay(320); frame++ } }
+    val twinkle by rememberInfiniteTransition(label = "tw").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Reverse), label = "tw",
     )
 
-    BoxWithConstraints(modifier.fillMaxWidth()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val widthPx = with(density) { maxWidth.toPx() }
         val viewPx = with(density) { maxHeight.toPx() }
         val spacingPx = with(density) { SPACING.toPx() }
         val topPx = with(density) { TOP_PAD.toPx() }
         val heightDp = TOP_PAD + SPACING * nodes + BOTTOM_PAD
-        val amp = widthPx * 0.26f
+        val amp = widthPx * 0.25f
 
-        fun pos(i: Int): Offset = Offset(
-            widthPx / 2f + amp * sin(i * 0.85f),
-            topPx + (nodes - i) * spacingPx,
-        )
+        fun pos(i: Float): Offset = Offset(widthPx / 2f + amp * sin(i * 0.85f), topPx + (nodes - i) * spacingPx)
+
+        val stars = remember(nodes, widthPx) {
+            val r = Random(7)
+            List(nodes * 3) { Triple(r.nextFloat(), r.nextFloat(), r.nextInt(3)) }
+        }
 
         LaunchedEffect(streak, viewPx) {
-            val y = pos(streak).y - viewPx * 0.55f
-            scroll.scrollTo(y.roundToInt().coerceIn(0, scroll.maxValue.coerceAtLeast(0)))
+            val y = pos(streak.toFloat()).y - viewPx * 0.6f
+            scroll.animateScrollTo(y.roundToInt().coerceIn(0, scroll.maxValue.coerceAtLeast(0)))
         }
 
         Box(Modifier.fillMaxWidth().verticalScroll(scroll).height(heightDp)) {
             Canvas(Modifier.fillMaxWidth().height(heightDp)) {
-                // Contour lines, like a survey map of the climb.
-                val lineCol = Ink.line.copy(alpha = 0.55f)
-                var y = topPx * 0.6f
-                var k = 0
-                while (y < size.height) {
-                    val p = Path()
-                    val steps = 24
-                    for (j in 0..steps) {
-                        val x = size.width * j / steps
-                        val yy = y + 14.dp.toPx() * sin(j * 0.55f + k * 1.3f) + 6.dp.toPx() * sin(j * 1.7f + k)
-                        if (j == 0) p.moveTo(x, yy) else p.lineTo(x, yy)
-                    }
-                    drawPath(p, lineCol, style = Stroke(1.dp.toPx()))
-                    y += spacingPx * 1.15f
-                    k++
+                val px = 3.dp.toPx() // the map's pixel size
+                fun snap(v: Float) = floor(v / px) * px
+
+                // Stars
+                stars.forEachIndexed { i, (sx, sy, k) ->
+                    val a = if (i % 5 == 0) 0.25f + 0.75f * twinkle else 0.5f
+                    val c = if (k == 0) Ink.amber else Ink.dim
+                    drawRect(c, Offset(snap(sx * size.width), snap(sy * size.height)), Size(px, px), alpha = a * 0.6f)
                 }
 
-                // Trail
-                fun trail(from: Int, to: Int): Path {
-                    val p = Path()
-                    val a = pos(from)
-                    p.moveTo(a.x, a.y)
-                    for (i in from + 1..to) {
-                        val prev = pos(i - 1)
-                        val cur = pos(i)
-                        val midY = (prev.y + cur.y) / 2f
-                        p.cubicTo(prev.x, midY, cur.x, midY, cur.x, cur.y)
-                    }
-                    return p
+                // Trail: blocks sampled along the curve
+                val stepsPerNode = 9
+                for (i in 0 until nodes * stepsPerNode) {
+                    val f = i / stepsPerNode.toFloat()
+                    if (i % stepsPerNode == 0) continue
+                    val p = pos(f)
+                    val done = f <= streak
+                    drawRect(
+                        if (done) Ink.amber else Ink.line,
+                        Offset(snap(p.x - px), snap(p.y - px)),
+                        Size(px * 2, px * 2),
+                    )
                 }
-                drawPath(
-                    trail(maxOf(streak, 0), nodes), Ink.faint.copy(alpha = 0.6f),
-                    style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 10.dp.toPx()))),
-                )
-                if (streak > 0) drawPath(trail(0, streak), Ink.amber, style = Stroke(4.dp.toPx(), cap = StrokeCap.Round))
 
-                // Steps
+                // Pines along the outside of each bend
+                for (i in 1..nodes step 2) {
+                    val p = pos(i + 0.5f)
+                    val side = if (sin((i + 0.5f) * 0.85f) > 0) -1 else 1
+                    val x = p.x + side * (60.dp.toPx() + (i % 3) * 14.dp.toPx())
+                    if (x > 8.dp.toPx() && x < size.width - 30.dp.toPx()) {
+                        drawSprite(Sprites.pine, Offset(snap(x), snap(p.y - 20.dp.toPx())), px, muted = i > streak + 3)
+                    }
+                }
+
+                // Steps and camps
                 for (i in 1..nodes) {
-                    val c = pos(i)
-                    val camp = i % 7 == 0
-                    val r = (if (camp) 19.dp else 13.dp).toPx()
-                    if (i <= streak) {
-                        drawCircle(Ink.amber, r, c)
+                    val c = pos(i.toFloat())
+                    if (i == streak) continue
+                    if (i % 7 == 0) {
+                        val sp = if (i <= streak) Sprites.tent else Sprites.tentTodo
+                        drawSprite(sp, Offset(snap(c.x - sp.w * px / 2), snap(c.y - sp.h * px + 4 * px)), px)
+                        val label = measurer.measure("Camp ${i / 7}", TextStyle(fontFamily = Pix, fontSize = 15.sp, color = if (i <= streak) Ink.amber else Ink.dim))
+                        val right = c.x < size.width / 2
+                        val lx = if (right) c.x + 30.dp.toPx() else c.x - 30.dp.toPx() - label.size.width
+                        drawText(label, topLeft = Offset(lx, c.y - 22.dp.toPx()))
+                        val sub = measurer.measure("day $i", TextStyle(fontFamily = Sans, fontSize = 12.sp, color = Ink.faint))
+                        drawText(sub, topLeft = Offset(if (right) lx else c.x - 30.dp.toPx() - sub.size.width, c.y - 2.dp.toPx()))
                     } else {
-                        drawCircle(Ink.surface, r, c)
-                        drawCircle(if (camp) Ink.dim else Ink.line, r, c, style = Stroke(2.dp.toPx()))
+                        val sp = if (i <= streak) Sprites.stoneDone else Sprites.stoneTodo
+                        drawSprite(sp, Offset(snap(c.x - 4 * px), snap(c.y - 4 * px)), px)
+                        val n = measurer.measure("$i", TextStyle(fontFamily = Pix, fontSize = 11.sp, color = if (i <= streak) Ink.dim else Ink.faint))
+                        val right = c.x < size.width / 2
+                        drawText(n, topLeft = Offset(if (right) c.x + 18.dp.toPx() else c.x - 18.dp.toPx() - n.size.width, c.y - n.size.height / 2f))
+                    }
+                    if (i == best && best > streak) {
+                        val b = measurer.measure("your best", TextStyle(fontFamily = Pix, fontSize = 12.sp, color = Ink.dim))
+                        val right = c.x < size.width / 2
+                        drawText(b, topLeft = Offset(if (right) c.x + 18.dp.toPx() else c.x - 18.dp.toPx() - b.size.width, c.y + 8.dp.toPx()))
                     }
                 }
+
                 // Base camp
-                val b = pos(0)
-                drawCircle(Ink.raised, 22.dp.toPx(), b)
-                drawCircle(if (streak > 0) Ink.amber else Ink.line, 22.dp.toPx(), b, style = Stroke(2.dp.toPx()))
-            }
+                val b = pos(0f)
+                drawSprite(Sprites.base, Offset(snap(b.x - 7 * px), snap(b.y - 6 * px)), px)
 
-            // Numbers and labels on top of the canvas.
-            for (i in 1..nodes) {
-                val c = pos(i)
-                val camp = i % 7 == 0
-                val d = if (camp) 38.dp else 26.dp
-                val half = with(density) { (d / 2).toPx() }
-                // The avatar sits on the current step, so skip its number.
-                if (i != streak) Box(
-                    Modifier.offset { IntOffset((c.x - half).roundToInt(), (c.y - half).roundToInt()) }.size(d),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (camp && i > streak) PeakGlyph(16.dp, Ink.dim)
-                    else Text(
-                        "$i",
-                        style = Type.num.copy(
-                            fontSize = Type.label.fontSize,
-                            color = if (i <= streak) Ink.bg else Ink.faint,
-                        ),
-                    )
-                }
-                if (camp) {
-                    val leftSide = c.x > widthPx / 2f
-                    val labelW = 96.dp
-                    val lx = if (leftSide) c.x - with(density) { (labelW + 30.dp).toPx() } else c.x + with(density) { 30.dp.toPx() }
+                // Climber
+                val a = pos(streak.toFloat())
+                val cl = if (frame % 2 == 0) Sprites.climberA else Sprites.climberB
+                val cpx = 4.dp.toPx()
+                drawSprite(cl, Offset(snap(a.x - cl.w * cpx / 2), snap(a.y - cl.h * cpx + 4 * px)), cpx, flipX = pos(streak + 1f).x < a.x)
+                val tag = measurer.measure(
+                    if (streak == 0) username else "$username · day $streak",
+                    TextStyle(fontFamily = Pix, fontSize = 13.sp, color = Ink.text, textAlign = TextAlign.Center),
+                )
+                val tx = (a.x - tag.size.width / 2f).coerceIn(4.dp.toPx(), size.width - tag.size.width - 4.dp.toPx())
+                drawRect(Ink.surface, Offset(tx - 6.dp.toPx(), a.y + 8.dp.toPx()), Size(tag.size.width + 12.dp.toPx(), tag.size.height + 6.dp.toPx()))
+                drawText(tag, topLeft = Offset(tx, a.y + 11.dp.toPx()))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BadgeGrid() {
+    val all = Badges.all(Store.state)
+    val earned = all.count { it.earned }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("$earned of ${all.size} earned", style = Type.small)
+        all.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { b ->
                     Column(
-                        Modifier.offset { IntOffset(lx.roundToInt(), (c.y - with(density) { 18.dp.toPx() }).roundToInt()) }.width(labelW),
-                        horizontalAlignment = if (leftSide) Alignment.End else Alignment.Start,
+                        Modifier
+                            .weight(1f)
+                            .background(Ink.surface, PxShape)
+                            .clickable { Toaster.show(if (b.earned) "${b.name}: ${b.how}." else "${b.how}. Now: ${b.detail}.") }
+                            .padding(vertical = 14.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text("Camp ${i / 7}", style = Type.title.copy(color = if (i <= streak) Ink.amber else Ink.text, fontWeight = FontWeight.SemiBold))
-                        Text("Week ${i / 7} · day $i", style = Type.small)
+                        PixelSprite(badgeSprite(b.id), Modifier.size(52.dp), muted = !b.earned, alpha = if (b.earned) 1f else 0.7f)
+                        Spacer(Modifier.height(8.dp))
+                        Text(b.name, style = Type.small.copy(color = if (b.earned) Ink.text else Ink.dim), textAlign = TextAlign.Center, maxLines = 1)
+                        Spacer(Modifier.height(6.dp))
+                        if (b.earned) Text("earned", style = Type.label.copy(color = Ink.amber))
+                        else PixelMeter(b.progress, Modifier.padding(horizontal = 6.dp), Ink.amber, blocks = 8, height = 6.dp)
                     }
                 }
-                if (i == best && best > streak) {
-                    val bx = c.x + with(density) { (if (c.x > widthPx / 2f) -110.dp else 24.dp).toPx() }
-                    Text(
-                        "Your best",
-                        style = Type.small.copy(color = Ink.dim),
-                        modifier = Modifier.offset { IntOffset(bx.roundToInt(), (c.y - with(density) { 9.dp.toPx() }).roundToInt()) },
-                    )
-                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
-
-            // Base label
-            val b = pos(0)
-            Text(
-                "Base",
-                style = Type.label,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .offset { IntOffset((b.x - with(density) { 40.dp.toPx() }).roundToInt(), (b.y + with(density) { 28.dp.toPx() }).roundToInt()) }
-                    .width(80.dp),
-            )
-
-            // Avatar
-            val a = pos(streak)
-            val av = 54.dp
-            val avHalf = with(density) { (av / 2).toPx() }
-            Box(
-                Modifier.offset { IntOffset((a.x - avHalf).roundToInt(), (a.y - avHalf).roundToInt()) }.size(av),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(Modifier.size(av).scale(halo).clip(CircleShape).background(Ink.amber.copy(alpha = 0.16f)))
-                Box(
-                    Modifier.size(av - 6.dp).clip(CircleShape).background(Ink.raised).border(3.dp, Ink.amber, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(initials(username), style = Type.title.copy(fontWeight = FontWeight.SemiBold, color = Ink.text))
-                }
-            }
-            Text(
-                if (streak == 0) username else "$username · day $streak",
-                style = Type.small.copy(color = Ink.text, fontWeight = FontWeight.Medium),
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .offset { IntOffset((a.x - with(density) { 80.dp.toPx() }).roundToInt(), (a.y + avHalf + with(density) { 6.dp.toPx() }).roundToInt()) }
-                    .width(160.dp),
-            )
         }
     }
 }
